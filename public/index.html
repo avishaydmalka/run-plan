@@ -142,6 +142,7 @@ body.onb{padding-bottom:20px}
 .form label small{font-weight:400;color:var(--muted);font-size:12px}
 .form input,.form select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
 .form input.ltr{direction:ltr;text-align:left}
+.tm{display:flex;gap:8px}.tm label{flex:1;font-weight:400}.tm label small{text-align:center}.tm input{text-align:center;font-size:18px;font-weight:700}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .steps{margin:0;padding-inline-start:20px;line-height:1.7;font-size:14.5px}
 .steps a{color:var(--accent);font-weight:700}
@@ -564,7 +565,12 @@ function renderSettings(){
         <label>מרחק <select id="pfType">${Object.entries(TESTS).map(([k,t])=>`<option value="${k}" ${p.testType===k?'selected':''}>${t.label}</option>`).join('')}</select></label>
         <label>מקור הזמן <select id="pfSrc">${Object.entries(SOURCES).map(([k,l])=>`<option value="${k}" ${p.source===k?'selected':''}>${l}</option>`).join('')}</select></label>
       </div>
-      <label>זמן <small>דקות:שניות, או שעות:דקות:שניות לחצי. אם לא בטוח – בחר "הערכה שלי"</small><input id="pfTime" class="ltr" inputmode="numeric" value="${p.time?hms(p.time):''}" placeholder="51:30"></label>
+      <div><div style="font-size:14px;font-weight:600;margin-bottom:5px">זמן <small style="font-weight:400;color:var(--muted);font-size:12px">אם לא בטוח – בחר "הערכה שלי"</small></div>
+        <div class="tm" dir="ltr">
+          <label class="tmH ${p.testType==='hm_race'?'':'hidden'}"><small>שעות</small><input id="pfH" type="number" inputmode="numeric" min="0" max="5" value="${p.time&&p.time>=3600?Math.floor(p.time/3600):''}" placeholder="1"></label>
+          <label><small>דקות</small><input id="pfM" type="number" inputmode="numeric" min="0" max="59" value="${p.time?Math.floor(p.time%3600/60):''}" placeholder="51"></label>
+          <label><small>שניות</small><input id="pfS" type="number" inputmode="numeric" min="0" max="59" value="${p.time?p.time%60:''}" placeholder="30"></label>
+        </div></div>
       <div class="two">
         <label>דופק ממוצע בריצה <small>אופציונלי</small><input id="pfTestHr" type="number" inputmode="numeric" value="${p.testHr||''}" placeholder="164"></label>
         <label>דופק מנוחה <small>אופציונלי · בבוקר</small><input id="pfRest" type="number" inputmode="numeric" value="${p.restHr||''}" placeholder="55"></label>
@@ -615,12 +621,14 @@ function renderSettings(){
   wireSettings(first);
 }
 function readProfileForm(){
-  const time = parseTime($('#pfTime').value);
+  const v = id => { const el=$(id); const n = el && !el.closest('.hidden') ? parseInt(el.value,10) : 0; return isNaN(n)?0:n; };
+  const mRaw = $('#pfM').value.trim();
+  const time = mRaw==='' ? null : (v('#pfH')*3600 + v('#pfM')*60 + Math.min(59, v('#pfS'))) || null;
   const num = id => { const v=+$(id).value; return v>0?Math.round(v):null; };
   return {name:$('#pfName').value.trim(), testType:$('#pfType').value, source:$('#pfSrc').value, time, testHr:num('#pfTestHr'), restHr:num('#pfRest'), maxHr:num('#pfMax')};
 }
 function validateProfile(p){
-  if(!p.time) return 'הזן זמן בפורמט 51:30';
+  if(!p.time) return 'הזן זמן (דקות ושניות)';
   const pace = p.time / TESTS[p.testType].km;
   if(pace < 150 || pace > 600) return 'הזמן לא נראה הגיוני למרחק שנבחר';
   if(p.testHr && (p.testHr<100||p.testHr>220)) return 'דופק ממוצע לא הגיוני';
@@ -647,6 +655,8 @@ function wireSettings(first){
     const prev = ()=>{ const p=readProfileForm(); const err=validateProfile(p); const old=C; C = err?null:calc(p);
       $('#pfPreview').innerHTML = C ? `<div class="card" style="background:var(--bg);margin:0">${zonesTable()}</div>` : '';
       C = old; };
+    const syncH = ()=>{ const isHm=$('#pfType').value==='hm_race'; document.querySelector('.tmH').classList.toggle('hidden', !isHm); $('#pfM').placeholder = isHm?'55':'51'; };
+    $('#pfType').addEventListener('change', syncH);
     pf.addEventListener('input', prev); pf.addEventListener('change', prev); prev();
     $('#pfSave').onclick = ()=>{
       const p = readProfileForm(); const err = validateProfile(p);
