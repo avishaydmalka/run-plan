@@ -68,13 +68,13 @@ async function bumpUsage(db, code, day) {
   return row ? row.count : 1;
 }
 
-async function callGemini(env, system, messages) {
+async function callGemini(env, system, messages, apiKey) {
   const models = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== env.GEMINI_MODEL)] : FALLBACK_MODELS;
   let last = { status: 502, message: "no model answered" };
   for (const model of models) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: messages.map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: String(m.content) }] })),
@@ -87,6 +87,7 @@ async function callGemini(env, system, messages) {
       return { text, model };
     }
     last = { status: r.status, message: j?.error?.message || `HTTP ${r.status}` };
+    if (r.status === 400 || r.status === 403) last.message = "Google דחה את הבקשה – בדוק שמפתח ה-Gemini נכון ופעיל. (" + last.message + ")";
     if (r.status !== 404) break; // only try the next model when this one doesn't exist
   }
   throw Object.assign(new Error(last.status === 429 ? "המפתח המשותף הגיע למגבלת הבקשות של Google. נסה שוב מאוחר יותר." : last.message), { status: last.status === 429 ? 429 : 502 });
@@ -144,7 +145,9 @@ async function api(request, env, url) {
 
   // chat via the shared key
   if (path === "/api/chat" && method === "POST") {
-    if (!env.GEMINI_API_KEY) return err(503, "אין מפתח משותף בשרת – הזן מפתח Gemini אישי בהגדרות.");
+    // A personal key (header x-gemini-key) is passed through to Google and never stored or counted.
+    const userKey = (request.headers.get("x-gemini-key") || "").trim();
+    if (!userKey && !env.GEMINI_API_KEY) return err(503, "אין מפתח משותף בשרת – הזן מפתח Gemini אישי בהגדרות.");
     const body = await readJson(request);
     const code = normCode(body.code);
     if (!CODE_RE.test(code)) return err(400, "קוד לא תקין");
@@ -152,12 +155,14 @@ async function api(request, env, url) {
     if (!user) return err(403, "משתמש לא מוכר");
     const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
     if (!messages.length || messages[messages.length - 1].role !== "user") return err(400, "no question");
+    const system = String(body.system || "").slice(0, 120_000);
+    if (userKey) return json(await callGemini(env, system, messages, userKey));
     const day = now.slice(0, 10);
     const perUser = Number(env.DAILY_LIMIT || 40), global = Number(env.GLOBAL_DAILY_LIMIT || 1000);
     const [u, g] = await Promise.all([bumpUsage(db, code, day), bumpUsage(db, "*", day)]);
     if (u > perUser) return err(429, `הגעת למכסה היומית (${perUser} שאלות). אפשר להמשיך מחר, או להזין מפתח Gemini אישי בהגדרות.`);
     if (g > global) return err(429, "המכסה היומית המשותפת נגמרה. אפשר להזין מפתח Gemini אישי בהגדרות.");
-    const result = await callGemini(env, String(body.system || "").slice(0, 120_000), messages);
+    const result = await callGemini(env, system, messages, env.GEMINI_API_KEY);
     return json({ ...result, used: u, limit: perUser });
   }
 

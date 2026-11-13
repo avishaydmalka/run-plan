@@ -705,6 +705,10 @@ function wireSettings(first){
 async function gemini(msgs, system){
   const key = (GEM.key||'').trim();
   if(!key) throw new Error('אין מפתח Gemini – הגדר אותו בהגדרות.');
+  if(SERVER && CODE){   // go through our server: avoids browser/CORS issues (notably Safari)
+    const d = await apiFetch('/api/chat',{method:'POST', headers:{'content-type':'application/json','x-gemini-key':key}, body: JSON.stringify({code: CODE, system, messages: msgs})});
+    return {text: d.text, model: d.model};
+  }
   const models = GEM.model ? [GEM.model] : GEM_MODELS;
   let lastErr;
   for(const model of models){
@@ -775,7 +779,8 @@ async function ask(text){
     }
   }catch(e){
     const c = e?.code;
-    CHAT[idx].content = c==='rate_limited' ? 'יותר מדי בקשות כרגע, נסה שוב בעוד דקה.' : c==='not_granted' ? 'לא אושרה גישה למודל.' : 'שגיאה: ' + (e?.message || c || e);
+    const netErr = e instanceof TypeError || /load failed|failed to fetch|type error|networkerror/i.test(e?.message||'');
+    CHAT[idx].content = c==='rate_limited' ? 'יותר מדי בקשות כרגע, נסה שוב בעוד דקה.' : c==='not_granted' ? 'לא אושרה גישה למודל.' : netErr ? 'שגיאת רשת – בדוק חיבור לאינטרנט ונסה שוב.' : 'שגיאה: ' + (e?.message || c || e);
   }
   busy=false; $('#send').disabled=false; renderChat(); scrollEnd();
 }
