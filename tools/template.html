@@ -223,7 +223,9 @@ const store = {
 };
 let PROFILE = store.get('rp.profile', null);   // {name, testType, time, testHr, restHr, maxHr}
 let LOG = store.get('rp.log', {});             // date -> {done, km, note}
-let GEM = store.get('rp.gemini', {key:'', model:''});
+// API keys are plain ASCII; iPhone/RTL keyboards can slip in invisible marks (e.g. U+200F) that make fetch() throw "Type error"
+const cleanKey = k => String(k||'').replace(/[^\x21-\x7E]/g,'');
+let GEM = store.get('rp.gemini', {key:'', model:''}); GEM.key = cleanKey(GEM.key); GEM.model = cleanKey(GEM.model);
 let sample = null;
 
 // ---------- helpers ----------
@@ -674,7 +676,7 @@ function wireSettings(first){
   // gemini
   const gk = $('#gmKey');
   if(gk){
-    const saveGem = ()=>{ GEM = {key:gk.value.trim(), model:$('#gmModel').value.trim()}; store.set('rp.gemini', GEM); updateChatBox(); };
+    const saveGem = ()=>{ GEM = {key:cleanKey(gk.value), model:cleanKey($('#gmModel').value)}; gk.value = GEM.key; store.set('rp.gemini', GEM); updateChatBox(); };
     on('#gmTest', async ()=>{
       saveGem(); const m=$('#gmMsg'); m.className='note'; m.textContent='בודק…';
       try{ const t = await gemini([{role:'user',content:'ענה במילה אחת: מוכן?'}], 'אתה עוזר קצר.'); m.className='okmsg'; m.textContent='המפתח עובד ✓ ('+t.model+')'; }
@@ -705,7 +707,7 @@ function wireSettings(first){
 
 // ---------- AI ----------
 async function gemini(msgs, system){
-  const key = (GEM.key||'').trim();
+  const key = cleanKey(GEM.key);
   if(!key) throw new Error('אין מפתח Gemini – הגדר אותו בהגדרות.');
   if(/^https?:$/.test(location.protocol)){   // go through our server: avoids browser/CORS issues (notably Safari)
     try{
