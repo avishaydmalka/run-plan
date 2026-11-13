@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>מסך מאמן – חצי מרתון ת"א 2027</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&family=Rubik:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f1ec;--card:#fffdf9;--ink:#1b2430;--muted:#6b7280;--line:#e6e0d6;--accent:#ff5a1f;--ok:#15803d;--navy:#14213d;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root{--bg:#0f141b;--card:#18202b;--ink:#eef1f5;--muted:#9aa3af;--line:#283241;--navy:#0b1220}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Heebo,system-ui,sans-serif}
+.num,h1,h2{font-family:Rubik,Heebo,sans-serif}
+header{background:var(--navy);color:#fff;padding:18px 16px}
+header .w{max-width:1000px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:20px}
+.w{max-width:1000px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.stat .v{font-family:Rubik;font-weight:800;font-size:26px}.stat .l{color:var(--muted);font-size:12px}
+input,button{font:inherit;color:inherit}
+input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12px;color:var(--muted);text-align:right;font-weight:700;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.u{cursor:pointer}tr.u:hover td{background:rgba(255,90,31,.05)}
+.bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;min-width:70px;margin-top:4px}.bar>i{display:block;height:100%;background:var(--ok)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--bg);color:var(--muted)}
+.tag.est{background:#fef3c7;color:var(--warn)}.tag.skip{background:#e5e7eb;color:#4b5563}
+.muted{color:var(--muted);font-size:12px}
+.detail td{background:var(--bg)}
+.weeks{display:flex;gap:3px;align-items:flex-end;height:60px;margin:8px 0}
+.weeks div{flex:1;background:var(--line);border-radius:3px 3px 0 0;position:relative}
+.weeks div i{position:absolute;bottom:0;left:0;right:0;background:var(--ok);border-radius:3px 3px 0 0}
+.notes{display:grid;gap:4px;font-size:13px;margin-top:6px}
+.err{color:#dc2626;font-weight:600}
+.wrapx{overflow-x:auto}
+</style>
+</head>
+<body>
+<header><div class="w"><h1>📋 מסך מאמן · חצי מרתון ת"א 26.2.27</h1><span id="hdr" class="muted" style="color:#cbd5e1"></span></div></header>
+<main class="w">
+  <div class="card" id="login">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="pw" type="password" placeholder="סיסמת מאמן" autocomplete="current-password">
+      <button class="pri" id="go">כניסה</button><span id="msg" class="err"></span>
+    </div>
+  </div>
+  <div id="out"></div>
+</main>
+<script id="plan" type="application/json">__PLAN__</script>
+<script>
+(function(){
+"use strict";
+const PLAN = JSON.parse(document.getElementById('plan').textContent);
+const DAYS = PLAN.days, WEEKS = PLAN.weeks, byDate = Object.fromEntries(DAYS.map(d=>[d.date,d]));
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const TODAY = iso(new Date());
+const kmNum = k => { if(!k) return 0; const p=String(k).split('-').map(Number); return p.reduce((a,b)=>a+b,0)/p.length; };
+const r1 = n => Math.round(n*10)/10;
+const hms = sec => { sec=Math.round(sec); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60; return h?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`; };
+const KM = {'10k_test':10,'10k_race':10,'5k_test':5,'hm_race':21.0975};
+const SRC = {race:'תחרות',test:'טסט',estimate:'הערכה'};
+const curWeek = byDate[TODAY]?.week || (TODAY < PLAN.start ? 0 : WEEKS.length+1);
+const fmtDate = s => { if(!s) return '—'; const d=new Date(s); return `${d.getDate()}.${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+
+function summarize(u){
+  const log = u.log || {}, p = u.profile;
+  const doneOn = d => log[d.date]?.done;
+  const kmOf = d => Number(log[d.date]?.km) || kmNum(d.km);
+  const weekKm = WEEKS.map(w => DAYS.filter(d=>d.week===w.week && doneOn(d)).reduce((a,d)=>a+kmOf(d),0));
+  const past = DAYS.filter(d => d.date < TODAY && d.type!=='מנוחה');
+  const pastDone = past.filter(doneOn).length;
+  const lastDone = Object.keys(log).filter(k=>log[k]?.done).sort().pop();
+  const notes = Object.keys(log).filter(k=>log[k]?.note).sort().reverse().slice(0,6).map(k=>({date:k, note:log[k].note, km:log[k].km, type:byDate[k]?.type}));
+  let thr = '<span class="tag skip">לפי תחושה</span>', t10 = null;
+  if(p && !p.skipped && p.time && KM[p.testType]){
+    t10 = p.time * Math.pow(10/KM[p.testType], 1.06) * (p.source==='estimate'?1.03:1);
+    thr = `${hms(p.time)} / ${KM[p.testType]===21.0975?'חצי':KM[p.testType]+' ק"מ'} <span class="tag ${p.source==='estimate'?'est':''}">${SRC[p.source]||'טסט'}</span><div class="muted">שקול 10 ק"מ ${hms(t10)}${p.testHr?' · דופק '+p.testHr:''}${p.restHr?' · מנוחה '+p.restHr:''}</div>`;
+  }
+  const cw = WEEKS[curWeek-1];
+  return {weekKm, compliance: past.length ? Math.round(pastDone/past.length*100) : null, pastDone, pastTotal: past.length, lastDone, notes, thr, t10,
+    thisWeek: cw ? weekKm[cw.week-1] : 0, thisWeekPlan: cw ? cw.km : 0, total: weekKm.reduce((a,b)=>a+b,0)};
+}
+
+let DATA = null, sortKey = 'updated', open = {};
+function render(){
+  const users = DATA.users.map(u => Object.assign(u, {s: summarize(u)}));
+  const sorters = {updated:(a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''), name:(a,b)=>(a.name||'').localeCompare(b.name||'','he'),
+    week:(a,b)=>b.s.thisWeek-a.s.thisWeek, comp:(a,b)=>(b.s.compliance??-1)-(a.s.compliance??-1), total:(a,b)=>b.s.total-a.s.total};
+  users.sort(sorters[sortKey]);
+  const active7 = users.filter(u => u.s.lastDone && (new Date(TODAY)-new Date(u.s.lastDone))/864e5 <= 7).length;
+  const avgComp = users.filter(u=>u.s.compliance!=null); const avg = avgComp.length ? Math.round(avgComp.reduce((a,u)=>a+u.s.compliance,0)/avgComp.length) : null;
+  const cw = WEEKS[curWeek-1];
+  $('#hdr').textContent = cw ? `שבוע ${cw.week} · ${cw.phase} · ${cw.km} ק"מ מתוכננים` : (curWeek===0?'לפני תחילת התוכנית':'התוכנית הסתיימה');
+  const max = Math.max(...WEEKS.map(w=>w.km));
+  $('#out').innerHTML = `
+  <div class="stats">
+    <div class="card stat"><div class="v">${users.length}</div><div class="l">רצים רשומים</div></div>
+    <div class="card stat"><div class="v">${active7}</div><div class="l">דיווחו ב-7 ימים אחרונים</div></div>
+    <div class="card stat"><div class="v">${avg==null?'—':avg+'%'}</div><div class="l">ביצוע ממוצע עד היום</div></div>
+    <div class="card stat"><div class="v">${DATA.chatTodayTotal}</div><div class="l">שאלות צ'אט היום (מפתח משותף)</div></div>
+  </div>
+  <div class="card wrapx"><table>
+    <thead><tr>
+      <th data-s="name">רץ</th><th>ספים</th><th data-s="week">השבוע</th><th data-s="comp">ביצוע עד היום</th><th data-s="total">סה"כ ק"מ</th><th data-s="updated">עדכון אחרון</th>
+    </tr></thead>
+    <tbody>${users.map(u=>{ const s=u.s; return `
+      <tr class="u" data-c="${u.code}">
+        <td><b>${esc(u.name||'(ללא שם)')}</b><div class="muted" dir="ltr" style="text-align:right">${u.code.slice(0,4)}-${u.code.slice(4)}</div></td>
+        <td>${s.thr}</td>
+        <td><span class="num">${r1(s.thisWeek)}</span> / ${s.thisWeekPlan||'—'}<div class="bar"><i style="width:${s.thisWeekPlan?Math.min(100,s.thisWeek/s.thisWeekPlan*100):0}%"></i></div></td>
+        <td>${s.compliance==null?'—':`<span class="num">${s.compliance}%</span><div class="muted">${s.pastDone}/${s.pastTotal} אימונים</div>`}</td>
+        <td class="num">${r1(s.total)}</td>
+        <td>${fmtDate(u.updated_at)}<div class="muted">${s.lastDone?'ריצה אחרונה '+s.lastDone.slice(8,10)+'.'+s.lastDone.slice(5,7):'עוד לא דיווח'}${u.chatToday?` · 💬${u.chatToday}`:''}</div></td>
+      </tr>
+      ${open[u.code]?`<tr class="detail"><td colspan="6">
+        <div class="muted">ק"מ שבוצעו לפי שבוע (אפור = מתוכנן)</div>
+        <div class="weeks">${WEEKS.map((w,i)=>`<div style="height:${w.km/max*100}%" title="שבוע ${w.week}: ${r1(s.weekKm[i])}/${w.km}"><i style="height:${Math.min(100,s.weekKm[i]/w.km*100)}%"></i></div>`).join('')}</div>
+        <div class="notes">${s.notes.length?s.notes.map(n=>`<div><b>${n.date.slice(8,10)}.${n.date.slice(5,7)}</b> ${esc(n.type||'')}${n.km!=null?' · '+n.km+' ק"מ':''} — ${esc(n.note)}</div>`).join(''):'<span class="muted">אין הערות</span>'}</div>
+      </td></tr>`:''}`;}).join('')}</tbody>
+  </table>${users.length?'':'<div class="muted" style="padding:12px">עוד אין רצים רשומים.</div>'}</div>`;
+  document.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{ sortKey=th.dataset.s; render(); });
+  document.querySelectorAll('tr.u').forEach(tr=>tr.onclick=()=>{ open[tr.dataset.c]=!open[tr.dataset.c]; render(); });
+}
+async function load(){
+  const pw = $('#pw').value || sessionStorage.getItem('coachPw') || '';
+  if(!pw) return;
+  $('#msg').textContent = 'טוען…';
+  try{
+    const r = await fetch('/api/coach', {headers:{authorization:'Bearer '+pw}});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('HTTP '+r.status));
+    try{ sessionStorage.setItem('coachPw', pw); }catch(e){}
+    DATA = j; $('#msg').textContent=''; $('#login').style.display='none'; render();
+  }catch(e){ $('#msg').textContent = e.message; try{ sessionStorage.removeItem('coachPw'); }catch(_){} }
+}
+$('#go').onclick = load;
+$('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') load(); });
+try{ if(sessionStorage.getItem('coachPw')) load(); }catch(e){}
+})();
+</script>
+</body>
+</html>

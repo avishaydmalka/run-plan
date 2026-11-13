@@ -1,0 +1,23 @@
+name = "run-plan"
+main = "src/worker.js"
+compatibility_date = "2026-11-13"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "run-plan-db"
+database_id = "9e91eec3-26cd-4b63-b0c3-8aa286c18417"
+
+[vars]
+DAILY_LIMIT = "40"
+GLOBAL_DAILY_LIMIT = "1000"
+GEMINI_MODEL = "gemini-flash-latest"
+
+# Secrets – set in the dashboard (Worker → Settings → Variables and Secrets), never in this file:
+#   GEMINI_API_KEY   shared Gemini key for the chat
+#   COACH_PASSWORD   password for /coach
+#   INVITE_CODE      optional – if set, new users must enter it

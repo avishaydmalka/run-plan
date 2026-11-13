@@ -482,41 +482,104 @@ function closeSheet(){ $('#scrim').classList.remove('on'); $('#sheet').classList
 function saveLog(s, done){
   const km = $('#lgKm').value.trim(), note = $('#lgNote').value.trim();
   LOG[s] = {done, km: km===''?null:Number(km), note, updated: new Date().toISOString()};
-  if(!store.set('rp.log', LOG)){ $('#lgMsg').textContent='השמירה נכשלה (הדפדפן חוסם אחסון מקומי).'; return; }
-  renderAll(); closeSheet();
+  if(!store.set('rp.log', LOG) && !CODE){ $('#lgMsg').textContent='השמירה נכשלה (הדפדפן חוסם אחסון מקומי).'; return; }
+  markDirty(); renderAll(); closeSheet();
+}
+
+// ---------- server (Cloudflare Worker) ----------
+let SERVER = null;                         // {sharedChat, inviteRequired, coach} when /api is reachable
+let CODE = store.get('rp.code', null);     // personal sync code
+const fmtCode = c => c ? c.slice(0,4)+'-'+c.slice(4) : '';
+async function apiFetch(path, opts={}){
+  const r = await fetch(path, Object.assign({headers:{'content-type':'application/json'}}, opts));
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok) throw Object.assign(new Error(j.error || ('HTTP '+r.status)), {status:r.status});
+  return j;
+}
+let syncTimer = null, syncState = '';
+function markDirty(){ store.set('rp.dirty', true); scheduleSync(); }
+function scheduleSync(){ if(!SERVER || !CODE) return; clearTimeout(syncTimer); syncTimer = setTimeout(pushNow, 800); }
+async function pushNow(){
+  if(!SERVER || !CODE) return;
+  try{
+    await apiFetch('/api/user/'+CODE, {method:'PUT', body: JSON.stringify({name: PROFILE?.name||'', profile: PROFILE, log: LOG})});
+    store.set('rp.dirty', false); syncState = 'ok';
+  }catch(e){ syncState = 'err'; }
+  const el = $('#syncState'); if(el) el.textContent = syncLabel();
+}
+const syncLabel = () => !SERVER ? 'ללא שרת – נשמר רק במכשיר' : !CODE ? '' : syncState==='err' ? '⚠️ הסנכרון נכשל, ננסה שוב' : store.get('rp.dirty',false) ? 'מסנכרן…' : '☁️ מסונכרן';
+async function pullFromServer(code){
+  const d = await apiFetch('/api/user/'+code);
+  PROFILE = d.profile || null; LOG = d.log || {};
+  if(PROFILE && d.name && !PROFILE.name) PROFILE.name = d.name;
+  store.set('rp.profile', PROFILE); store.set('rp.log', LOG); store.set('rp.dirty', false);
+  C = calc(PROFILE);
+  return d;
+}
+async function initServer(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  try{ SERVER = await apiFetch('/api/health'); }catch(e){ SERVER = null; return; }
+  if(CODE){
+    try{
+      if(store.get('rp.dirty', false)) await pushNow(); else await pullFromServer(CODE);
+      syncState='ok';
+    }catch(e){ if(e.status===404){ CODE=null; store.del('rp.code'); } }
+  }
+  if(ONBOARDING && !CODE) setupStep = 'start';
+  renderAll(); route();
 }
 
 // ---------- settings / onboarding ----------
-let setupStep = 0;
 let ONBOARDING = !PROFILE;
+let setupStep = 'profile';                 // 'start' (server only) → 'profile' → 'gemini' (only when no shared key)
+function onboardingSteps(){ const s=[]; if(SERVER) s.push('start'); s.push('profile'); if(!(SERVER&&SERVER.sharedChat)) s.push('gemini'); return s; }
+function nextStep(){ const s=onboardingSteps(); const i=s.indexOf(setupStep); if(i<s.length-1){ setupStep=s[i+1]; renderSettings(); window.scrollTo({top:0}); } else finishOnboarding(); }
+function finishOnboarding(){ ONBOARDING=false; renderAll(); if(location.hash==='#today') route(); else location.hash='today'; }
+
 function renderSettings(){
   const first = ONBOARDING;
   const p = Object.assign({name:'', testType:'10k_test', source:'test', time:null, testHr:null, restHr:null, maxHr:null}, PROFILE||{});
-  const steps = first ? `<div class="stepper">${[0,1].map(i=>`<i class="${i<=setupStep?'on':''}"></i>`).join('')}</div>` : '';
+  const steps = onboardingSteps();
+  const show = k => !first || setupStep===k;
   let html = '';
-  if(first) html += `<div class="card welcome"><h2>ברוך הבא 👋</h2><div>תוכנית 15 שבועות לחצי מרתון תל אביב (26.2.2027). שני צעדים קצרים: הספים שלך כדי שהקצבים והדופק יותאמו אליך, ומפתח Gemini חינמי לשאלות.</div>${steps}</div>`;
-  if(!first || setupStep===0){
-    html += `<div class="card"><div class="lbl">1 · הספים שלך</div>
+  if(first) html += `<div class="card welcome"><h2>ברוך הבא 👋</h2><div>תוכנית 15 שבועות לחצי מרתון תל אביב (26.2.2027). כמה צעדים קצרים ואתה בפנים.</div>
+    <div class="stepper">${steps.map((k,i)=>`<i class="${i<=steps.indexOf(setupStep)?'on':''}"></i>`).join('')}</div></div>`;
+
+  if(SERVER && first && setupStep==='start'){
+    html += `<div class="card"><div class="lbl">התחלה</div>
+      <div class="form">
+        ${SERVER.inviteRequired?`<label>קוד הזמנה <small>קיבלת אותו מהמאמן</small><input id="stInvite" class="ltr" autocomplete="off"></label>`:''}
+        <button class="btn pri" id="stNew">אני חדש – צור לי חשבון</button>
+        <div class="note" style="text-align:center">— או —</div>
+        <label>כבר יש לי קוד אישי <small>כדי להמשיך מכשיר אחר</small><input id="stCode" class="ltr" placeholder="ABCD-2345" autocomplete="off" style="text-transform:uppercase"></label>
+        <button class="btn" id="stLogin">כניסה עם קוד</button>
+        <div id="stMsg" class="errmsg"></div>
+      </div></div>`;
+  }
+  if(show('profile')){
+    html += `<div class="card"><div class="lbl">הספים שלך</div>
     <div class="form" id="pf">
-      <label>שם <small>(מופיע רק אצלך)</small><input id="pfName" value="${esc(p.name||'')}" placeholder="למשל: אבישי"></label>
+      <label>שם <small>${SERVER?'(יופיע גם אצל המאמן)':'(מופיע רק אצלך)'}</small><input id="pfName" value="${esc(p.name||'')}" placeholder="למשל: אבישי"></label>
       <div class="two">
         <label>מרחק <select id="pfType">${Object.entries(TESTS).map(([k,t])=>`<option value="${k}" ${p.testType===k?'selected':''}>${t.label}</option>`).join('')}</select></label>
         <label>מקור הזמן <select id="pfSrc">${Object.entries(SOURCES).map(([k,l])=>`<option value="${k}" ${p.source===k?'selected':''}>${l}</option>`).join('')}</select></label>
       </div>
       <label>זמן <small>דקות:שניות, או שעות:דקות:שניות לחצי. אם לא בטוח – בחר "הערכה שלי"</small><input id="pfTime" class="ltr" inputmode="numeric" value="${p.time?hms(p.time):''}" placeholder="51:30"></label>
       <div class="two">
-        <label><span id="pfHrLbl">דופק ממוצע בריצה</span> <small>אופציונלי</small><input id="pfTestHr" type="number" inputmode="numeric" value="${p.testHr||''}" placeholder="164"></label>
+        <label>דופק ממוצע בריצה <small>אופציונלי</small><input id="pfTestHr" type="number" inputmode="numeric" value="${p.testHr||''}" placeholder="164"></label>
         <label>דופק מנוחה <small>אופציונלי · בבוקר</small><input id="pfRest" type="number" inputmode="numeric" value="${p.restHr||''}" placeholder="55"></label>
       </div>
-      <label>דופק מקסימלי <small>אופציונלי – משמש רק אם אין דופק טסט</small><input id="pfMax" type="number" inputmode="numeric" value="${p.maxHr||''}" placeholder="185"></label>
+      <label>דופק מקסימלי <small>אופציונלי – משמש רק אם אין דופק ממוצע</small><input id="pfMax" type="number" inputmode="numeric" value="${p.maxHr||''}" placeholder="185"></label>
       <div id="pfPreview"></div>
       <div class="row"><span id="pfMsg" class="errmsg"></span><button class="btn pri" id="pfSave">${first?'המשך ←':'שמירה'}</button></div>
       <button class="btn" id="pfSkip">${first?'אין לי נתונים – דלג (אימון לפי תחושה)':'ביטול הספים – חזרה לאימון לפי תחושה'}</button>
       <div class="note">בלי ספים כל האימונים מוצגים לפי תחושת מאמץ ("קצב 10 ק"מ", "שיחה חופשית"), ואפשר להוסיף ספים בכל שלב – למשל אחרי הטסט ב-11.12.</div>
     </div></div>`;
   }
-  if(!first || setupStep===1){
-    html += `<div class="card"><div class="lbl">2 · מפתח Gemini (חינם) לשאלות</div>
+  if(show('gemini')){
+    const shared = SERVER && SERVER.sharedChat;
+    html += `<div class="card"><div class="lbl">${shared?'מפתח Gemini אישי (לא חובה)':'מפתח Gemini (חינם) לשאלות'}</div>
+      ${shared?'<div class="note" style="margin-bottom:8px">השאלות כבר עובדות עם המפתח המשותף (במכסה יומית). מפתח אישי נותן מכסה משלך.</div>':''}
       <ol class="steps">
         <li>היכנס ל-<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> עם חשבון Google ואשר את התנאים.</li>
         <li>לחץ <b>Create API key</b>. אם מתבקש, בחר או צור פרויקט.</li>
@@ -526,16 +589,27 @@ function renderSettings(){
         <label>API key<input id="gmKey" class="ltr" value="${esc(GEM.key||'')}" placeholder="AIza..." autocomplete="off" spellcheck="false"></label>
         <label>מודל <small>אפשר להשאיר ריק</small><input id="gmModel" class="ltr" value="${esc(GEM.model||'')}" placeholder="gemini-flash-latest"></label>
         <div class="row"><span id="gmMsg" class="note"></span><span style="display:flex;gap:8px"><button class="btn" id="gmTest">בדיקה</button><button class="btn pri" id="gmSave">${first?'סיום ✓':'שמירה'}</button></span></div>
-        <div class="note">המפתח נשמר רק בדפדפן הזה ונשלח רק ל-Google. בחינם יש מגבלת בקשות לדקה וליום, ו-Google רשאית להשתמש בתוכן השאלות לשיפור המוצרים שלה, אז לא לשתף שם מידע רגיש.</div>
+        <div class="note">המפתח האישי נשמר רק בדפדפן הזה ונשלח רק ל-Google. בחינם יש מגבלת בקשות, ו-Google רשאית להשתמש בתוכן השאלות לשיפור המוצרים שלה – לא לשתף שם מידע רגיש.</div>
         ${first?'<button class="btn" id="gmSkip">דילוג – אגדיר אחר כך</button>':''}
       </div></div>`;
   }
-  if(!first){
+  if(!first && SERVER){
+    html += `<div class="card"><div class="lbl"><span>החשבון שלך</span><span id="syncState" class="note">${syncLabel()}</span></div>
+      ${CODE?`<div class="row"><div><div class="note">הקוד האישי – שמור אותו! איתו נכנסים מכל מכשיר</div><div class="num" id="myCode" style="font-size:26px;letter-spacing:2px;direction:ltr;text-align:right">${fmtCode(CODE)}</div></div><button class="btn" id="cdCopy">העתקה</button></div>`
+        :`<div class="note">אין קוד – הנתונים נשמרים רק במכשיר הזה.</div><button class="btn pri" id="cdCreate" style="margin-top:8px">צור קוד וסנכרן</button>`}
+      <div class="form" style="margin-top:12px"><label>מעבר לקוד אחר<input id="cdOther" class="ltr" placeholder="ABCD-2345" style="text-transform:uppercase"></label>
+        <button class="btn" id="cdSwitch">טעינת הקוד</button><div id="cdMsg" class="note"></div></div></div>`;
+  }
+  if(!first && !SERVER){
     html += `<div class="card"><div class="lbl">גיבוי והעברה בין מכשירים</div>
-      <div class="note" style="margin-bottom:10px">הנתונים (ספים, דיווחים, מפתח) נשמרים רק במכשיר הזה. אפשר להעתיק גיבוי ולהדביק במכשיר אחר.</div>
-      <div class="row" style="justify-content:flex-start;gap:8px;flex-wrap:wrap"><button class="btn" id="bkCopy">העתקת גיבוי</button><button class="btn" id="bkPasteBtn">שחזור מגיבוי</button><button class="btn" id="bkReset" style="color:#dc2626">איפוס</button></div>
+      <div class="note" style="margin-bottom:10px">הנתונים נשמרים רק במכשיר הזה. אפשר להעתיק גיבוי ולהדביק במכשיר אחר.</div>
+      <div class="row" style="justify-content:flex-start;gap:8px;flex-wrap:wrap"><button class="btn" id="bkCopy">העתקת גיבוי</button><button class="btn" id="bkPasteBtn">שחזור מגיבוי</button></div>
       <textarea id="bkText" class="hidden" style="width:100%;margin-top:10px;min-height:90px;font:12px monospace;direction:ltr;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px" placeholder="הדבק כאן את הגיבוי ולחץ שוב על שחזור"></textarea>
       <div id="bkMsg" class="note" style="margin-top:6px"></div></div>`;
+  }
+  if(!first){
+    html += `<div class="card"><div class="lbl">יציאה / איפוס</div><button class="btn" id="bkReset" style="color:#dc2626">${SERVER&&CODE?'יציאה מהמכשיר הזה':'איפוס כל הנתונים במכשיר'}</button>
+      <div class="note" style="margin-top:6px">${SERVER&&CODE?'הנתונים נשארים בשרת – אפשר לחזור עם הקוד.':''}</div></div>`;
   }
   $('#v-settings').innerHTML = html;
   wireSettings(first);
@@ -549,54 +623,72 @@ function validateProfile(p){
   if(!p.time) return 'הזן זמן בפורמט 51:30';
   const pace = p.time / TESTS[p.testType].km;
   if(pace < 150 || pace > 600) return 'הזמן לא נראה הגיוני למרחק שנבחר';
-  if(p.testHr && (p.testHr<100||p.testHr>220)) return 'דופק טסט לא הגיוני';
+  if(p.testHr && (p.testHr<100||p.testHr>220)) return 'דופק ממוצע לא הגיוני';
   if(p.restHr && (p.restHr<30||p.restHr>100)) return 'דופק מנוחה לא הגיוני';
   return '';
 }
 function wireSettings(first){
+  const on = (id, fn) => { const el=$(id); if(el) el.onclick=fn; };
+  // start step
+  on('#stNew', async ()=>{
+    const m=$('#stMsg'); m.textContent='';
+    try{ const d = await apiFetch('/api/user',{method:'POST', body: JSON.stringify({invite: $('#stInvite')?.value||'', name:'', profile:null, log:LOG})});
+      CODE=d.code; store.set('rp.code',CODE); nextStep(); }
+    catch(e){ m.textContent = e.message; }
+  });
+  on('#stLogin', async ()=>{
+    const m=$('#stMsg'); m.textContent=''; const c=String($('#stCode').value).toUpperCase().replace(/[^A-Z0-9]/g,'');
+    try{ await pullFromServer(c); CODE=c; store.set('rp.code',CODE); if(PROFILE){ finishOnboarding(); } else nextStep(); }
+    catch(e){ m.textContent = e.status===404 ? 'הקוד לא נמצא' : e.message; }
+  });
+  // thresholds
   const pf = $('#pf');
   if(pf){
     const prev = ()=>{ const p=readProfileForm(); const err=validateProfile(p); const old=C; C = err?null:calc(p);
       $('#pfPreview').innerHTML = C ? `<div class="card" style="background:var(--bg);margin:0">${zonesTable()}</div>` : '';
       C = old; };
     pf.addEventListener('input', prev); pf.addEventListener('change', prev); prev();
-    const skip = ()=>{ const name=$('#pfName').value.trim(); PROFILE={skipped:true,name,updated:new Date().toISOString()}; C=null; store.set('rp.profile',PROFILE);
-      if(first){ setupStep=1; renderSettings(); window.scrollTo({top:0}); } else { renderAll(); renderSettings(); } };
-    $('#pfSkip').onclick = skip;
     $('#pfSave').onclick = ()=>{
       const p = readProfileForm(); const err = validateProfile(p);
-      if(err){ $('#pfMsg').textContent = err; return; }
+      if(err){ $('#pfMsg').className='errmsg'; $('#pfMsg').textContent = err; return; }
       p.updated = new Date().toISOString();
-      PROFILE = p; C = calc(p); store.set('rp.profile', p);
-      if(first){ setupStep = 1; renderSettings(); window.scrollTo({top:0}); }
+      PROFILE = p; C = calc(p); store.set('rp.profile', p); markDirty();
+      if(first) nextStep();
       else { $('#pfMsg').className='okmsg'; $('#pfMsg').textContent='נשמר ✓ כל הקצבים עודכנו'; renderHeader(); renderToday(); }
     };
+    $('#pfSkip').onclick = ()=>{ const name=$('#pfName').value.trim(); PROFILE={skipped:true,name,updated:new Date().toISOString()}; C=null; store.set('rp.profile',PROFILE); markDirty();
+      if(first) nextStep(); else { renderAll(); renderSettings(); } };
   }
+  // gemini
   const gk = $('#gmKey');
   if(gk){
     const saveGem = ()=>{ GEM = {key:gk.value.trim(), model:$('#gmModel').value.trim()}; store.set('rp.gemini', GEM); updateChatBox(); };
-    $('#gmTest').onclick = async ()=>{
+    on('#gmTest', async ()=>{
       saveGem(); const m=$('#gmMsg'); m.className='note'; m.textContent='בודק…';
       try{ const t = await gemini([{role:'user',content:'ענה במילה אחת: מוכן?'}], 'אתה עוזר קצר.'); m.className='okmsg'; m.textContent='המפתח עובד ✓ ('+t.model+')'; }
       catch(e){ m.className='errmsg'; m.textContent='שגיאה: '+(e.message||e); }
-    };
-    const finish = ()=>{ ONBOARDING=false; renderAll(); if(location.hash==='#today') route(); else location.hash='today'; };
-    $('#gmSave').onclick = ()=>{ saveGem(); if(first){ finish(); } else { $('#gmMsg').className='okmsg'; $('#gmMsg').textContent='נשמר ✓'; } };
-    const sk=$('#gmSkip'); if(sk) sk.onclick=finish;
+    });
+    on('#gmSave', ()=>{ saveGem(); if(first) nextStep(); else { $('#gmMsg').className='okmsg'; $('#gmMsg').textContent='נשמר ✓'; } });
+    on('#gmSkip', ()=>nextStep());
   }
-  const bc=$('#bkCopy');
-  if(bc){
-    bc.onclick = async ()=>{ const data=JSON.stringify({v:1,profile:PROFILE,log:LOG,gemini:GEM});
-      try{ await navigator.clipboard.writeText(data); $('#bkMsg').textContent='הגיבוי הועתק ✓ הדבק אותו במכשיר השני (בהגדרות ← שחזור).'; }
-      catch(e){ const t=$('#bkText'); t.classList.remove('hidden'); t.value=data; t.select(); $('#bkMsg').textContent='העתק את הטקסט ידנית.'; } };
-    $('#bkPasteBtn').onclick = ()=>{ const t=$('#bkText');
-      if(t.classList.contains('hidden') || !t.value.trim().startsWith('{')){ t.classList.remove('hidden'); t.value=''; t.focus(); $('#bkMsg').textContent='הדבק את הגיבוי ולחץ שוב על "שחזור מגיבוי".'; return; }
-      try{ const d=JSON.parse(t.value); if(d.profile){PROFILE=d.profile;store.set('rp.profile',PROFILE);C=calc(PROFILE);} if(d.log){LOG=d.log;store.set('rp.log',LOG);} if(d.gemini){GEM=d.gemini;store.set('rp.gemini',GEM);}
-        renderAll(); $('#bkMsg').textContent='שוחזר ✓'; }catch(e){ $('#bkMsg').textContent='הטקסט לא תקין.'; } };
-    let armed=false;
-    $('#bkReset').onclick = ()=>{ if(!armed){ armed=true; $('#bkReset').textContent='לחץ שוב לאישור – ימחק הכול במכשיר הזה'; return; }
-      ['rp.profile','rp.log','rp.gemini'].forEach(store.del); PROFILE=null; LOG={}; GEM={key:'',model:''}; C=null; setupStep=0; ONBOARDING=true; renderAll(); route(); };
-  }
+  // account
+  on('#cdCopy', async ()=>{ try{ await navigator.clipboard.writeText(fmtCode(CODE)); $('#cdMsg').textContent='הועתק ✓'; }catch(e){ $('#cdMsg').textContent=fmtCode(CODE); } });
+  on('#cdCreate', async ()=>{ try{ const d=await apiFetch('/api/user',{method:'POST',body:JSON.stringify({name:PROFILE?.name||'',profile:PROFILE,log:LOG,invite:''})}); CODE=d.code; store.set('rp.code',CODE); store.set('rp.dirty',false); syncState='ok'; renderSettings(); }catch(e){ $('#cdMsg').textContent=e.message; } });
+  on('#cdSwitch', async ()=>{ const c=String($('#cdOther').value).toUpperCase().replace(/[^A-Z0-9]/g,'');
+    try{ await pullFromServer(c); CODE=c; store.set('rp.code',CODE); syncState='ok'; renderAll(); renderSettings(); }
+    catch(e){ $('#cdMsg').textContent = e.status===404?'הקוד לא נמצא':e.message; } });
+  // local backup (no server)
+  on('#bkCopy', async ()=>{ const data=JSON.stringify({v:1,profile:PROFILE,log:LOG,gemini:GEM});
+    try{ await navigator.clipboard.writeText(data); $('#bkMsg').textContent='הגיבוי הועתק ✓ הדבק אותו במכשיר השני (בהגדרות ← שחזור).'; }
+    catch(e){ const t=$('#bkText'); t.classList.remove('hidden'); t.value=data; t.select(); $('#bkMsg').textContent='העתק את הטקסט ידנית.'; } });
+  on('#bkPasteBtn', ()=>{ const t=$('#bkText');
+    if(t.classList.contains('hidden') || !t.value.trim().startsWith('{')){ t.classList.remove('hidden'); t.value=''; t.focus(); $('#bkMsg').textContent='הדבק את הגיבוי ולחץ שוב על "שחזור מגיבוי".'; return; }
+    try{ const d=JSON.parse(t.value); if(d.profile){PROFILE=d.profile;store.set('rp.profile',PROFILE);C=calc(PROFILE);} if(d.log){LOG=d.log;store.set('rp.log',LOG);} if(d.gemini){GEM=d.gemini;store.set('rp.gemini',GEM);}
+      renderAll(); $('#bkMsg').textContent='שוחזר ✓'; }catch(e){ $('#bkMsg').textContent='הטקסט לא תקין.'; } });
+  let armed=false;
+  on('#bkReset', ()=>{ if(!armed){ armed=true; $('#bkReset').textContent='לחץ שוב לאישור'; return; }
+    ['rp.profile','rp.log','rp.gemini','rp.code','rp.dirty'].forEach(store.del); PROFILE=null; LOG={}; GEM={key:'',model:''}; C=null; CODE=null;
+    ONBOARDING=true; setupStep = SERVER?'start':'profile'; renderAll(); route(); });
 }
 
 // ---------- AI ----------
@@ -651,7 +743,7 @@ function renderChat(){
     : `<div class="note" style="text-align:center;padding:20px">שאל כל דבר על התוכנית, על אימון מסוים או על ההתקדמות שלך.</div>`;
   updateChatBox();
 }
-function updateChatBox(){ $('#gemBox').classList.toggle('hidden', !!(sample || GEM.key)); }
+function updateChatBox(){ $('#gemBox').classList.toggle('hidden', !!(sample || GEM.key || (SERVER && SERVER.sharedChat && CODE))); }
 let busy=false;
 async function ask(text){
   text = text.trim(); if(!text || busy) return;
@@ -660,11 +752,15 @@ async function ask(text){
   const idx = CHAT.length-1;
   const msgs = CHAT.slice(0,-1).slice(-12);
   try{
-    if(sample && !GEM.key){
+    if(!GEM.key && SERVER && SERVER.sharedChat && CODE){
+      const d = await apiFetch('/api/chat',{method:'POST', body: JSON.stringify({code: CODE, system: planContext(), messages: msgs})});
+      CHAT[idx].content = d.text;
+    } else if(sample && !GEM.key){
       const input = [{role:'user',content:planContext()+'\n\n---\nשאלה ראשונה של המתאמן מתחילה כאן.'},{role:'assistant',content:'הבנתי. אני מכיר את התוכנית ומוכן לשאלות.'}, ...msgs];
       const res = await sample(input,{cache:false, onText:({text})=>{CHAT[idx].content=text||'…'; updateLast(idx);}});
       CHAT[idx].content = res.text;
     } else {
+      if(!GEM.key) throw new Error('צריך מפתח Gemini – הגדר אותו בהגדרות.');
       CHAT[idx].content = (await gemini(msgs, planContext())).text;
     }
   }catch(e){
@@ -704,6 +800,7 @@ window.addEventListener('hashchange', route);
 setInterval(()=>{ const t=iso(new Date()); if(t!==TODAY){ TODAY=t; renderAll(); } }, 60000);
 
 renderAll(); route();
+initServer();
 
 // Optional: when opened inside Claude, its built-in model can answer without a Gemini key.
 if(window.claude && window.claude.use){
