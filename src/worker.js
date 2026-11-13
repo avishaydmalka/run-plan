@@ -206,13 +206,15 @@ async function serveFromGitHub(url, env) {
   const file = PAGES[url.pathname];
   if (!file) return new Response("not found", { status: 404 });
   const base = env.ASSET_BASE || "https://raw.githubusercontent.com/avishaydmalka/run-plan/main/public/";
-  const ttl = Number(env.ASSET_TTL || 300);
-  const r = await fetch(base + file, { cf: { cacheTtl: ttl, cacheEverything: true } });
+  const ttl = Number(env.ASSET_TTL || 60);
+  // the minute-bucket query bypasses GitHub's own 5-minute CDN cache, so a push shows up within ~1-2 minutes
+  const bucket = Math.floor(Date.now() / (ttl * 1000));
+  const r = await fetch(base + file + "?v=" + bucket, { cf: { cacheTtl: ttl, cacheEverything: true } });
   if (!r.ok) return new Response("page unavailable", { status: 502 });
   return new Response(r.body, {
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": `public, max-age=60`,
+      "cache-control": "no-cache",
       "x-content-type-options": "nosniff",
       "referrer-policy": "same-origin",
     },

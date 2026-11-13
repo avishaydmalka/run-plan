@@ -526,6 +526,7 @@ async function initServer(){
       syncState='ok';
     }catch(e){ if(e.status===404){ CODE=null; store.del('rp.code'); } }
   }
+  if(ONBOARDING && CODE && PROFILE) ONBOARDING = false;
   if(ONBOARDING && !CODE) setupStep = 'start';
   renderAll(); route();
 }
@@ -617,6 +618,7 @@ function renderSettings(){
     html += `<div class="card"><div class="lbl">יציאה / איפוס</div><button class="btn" id="bkReset" style="color:#dc2626">${SERVER&&CODE?'יציאה מהמכשיר הזה':'איפוס כל הנתונים במכשיר'}</button>
       <div class="note" style="margin-top:6px">${SERVER&&CODE?'הנתונים נשארים בשרת – אפשר לחזור עם הקוד.':''}</div></div>`;
   }
+  html += `<div class="note" style="text-align:center;padding:4px 0 12px">גרסה 13.11 11:58</div>`;
   $('#v-settings').innerHTML = html;
   wireSettings(first);
 }
