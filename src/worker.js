@@ -68,8 +68,12 @@ async function bumpUsage(db, code, day) {
   return row ? row.count : 1;
 }
 
-async function callGemini(env, system, messages, apiKey) {
-  const models = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== env.GEMINI_MODEL)] : FALLBACK_MODELS;
+const MODEL_RE = /^[a-z0-9][a-z0-9.\-]{2,60}$/;
+const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
+
+async function callGemini(env, system, messages, apiKey, preferred) {
+  // preferred model first, then the server default and fallbacks; busy/missing models fall through to the next one
+  const models = [...new Set([MODEL_RE.test(preferred || "") ? preferred : null, env.GEMINI_MODEL, ...FALLBACK_MODELS].filter(Boolean))];
   let last = { status: 502, message: "no model answered" };
   for (const model of models) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
@@ -88,7 +92,7 @@ async function callGemini(env, system, messages, apiKey) {
     }
     last = { status: r.status, message: j?.error?.message || `HTTP ${r.status}` };
     if (r.status === 400 || r.status === 403) last.message = "Google דחה את הבקשה – בדוק שמפתח ה-Gemini נכון ופעיל. (" + last.message + ")";
-    if (r.status !== 404) break; // only try the next model when this one doesn't exist
+    if ([400, 401, 403].includes(r.status)) break; // key problems: another model won't help
   }
   throw Object.assign(new Error(last.status === 429 ? "Google הגביל זמנית את מספר הבקשות למפתח הזה. נסה שוב בעוד דקה." : last.message), { status: last.status === 429 ? 429 : 502 });
 }
@@ -152,7 +156,7 @@ async function api(request, env, url) {
     if (userKey) {
       const msgs = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
       if (!msgs.length || msgs[msgs.length - 1].role !== "user") return err(400, "no question");
-      return json(await callGemini(env, String(body.system || "").slice(0, 120_000), msgs, userKey));
+      return json(await callGemini(env, String(body.system || "").slice(0, 120_000), msgs, userKey, body.model));
     }
     const code = normCode(body.code);
     if (!CODE_RE.test(code)) return err(400, "קוד לא תקין");
@@ -166,8 +170,38 @@ async function api(request, env, url) {
     const [u, g] = await Promise.all([bumpUsage(db, code, day), bumpUsage(db, "*", day)]);
     if (u > perUser) return err(429, `הגעת למכסה היומית (${perUser} שאלות). אפשר להמשיך מחר, או להזין מפתח Gemini אישי בהגדרות.`);
     if (g > global) return err(429, "המכסה היומית המשותפת נגמרה. אפשר להזין מפתח Gemini אישי בהגדרות.");
-    const result = await callGemini(env, system, messages, env.GEMINI_API_KEY);
+    const result = await callGemini(env, system, messages, env.GEMINI_API_KEY, body.model);
     return json({ ...result, used: u, limit: perUser });
+  }
+
+  // models available for a key (personal header, else the shared key) + a recommended one that answers right now
+  if (path === "/api/models" && method === "GET") {
+    const key = (request.headers.get("x-gemini-key") || "").trim() || env.GEMINI_API_KEY;
+    if (!key) return err(503, "אין מפתח – הזן מפתח Gemini אישי.");
+    const r = await fetch(`${GEMINI}?pageSize=1000`, { headers: { "x-goog-api-key": key } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return err(r.status === 400 || r.status === 403 ? 400 : 502, r.status === 400 || r.status === 403 ? "המפתח לא תקין – בדוק שהעתקת אותו במלואו." : (j?.error?.message || `HTTP ${r.status}`));
+    const skip = /(embed|image|imagen|tts|audio|live|veo|aqa|robotics|computer|native|learnlm|gemma)/i;
+    const ver = (id) => parseFloat((id.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+    const models = (j.models || [])
+      .filter((m) => m.name?.startsWith("models/gemini") && (m.supportedGenerationMethods || []).includes("generateContent") && !skip.test(m.name))
+      .map((m) => ({ id: m.name.slice(7), label: m.displayName || m.name.slice(7) }))
+      .sort((a, b) => (/flash/.test(b.id) - /flash/.test(a.id)) || (ver(b.id) - ver(a.id)) || (/lite/.test(a.id) - /lite/.test(b.id)) || a.id.localeCompare(b.id));
+    const ids = models.map((m) => m.id);
+    const prefer = url.searchParams.get("prefer") || "";
+    const order = [...new Set([prefer, "gemini-3.5-flash", ...ids.filter((i) => /flash/.test(i) && !/lite|preview|exp/.test(i)), ...ids.filter((i) => /flash/.test(i)), ...ids])].filter((i) => ids.includes(i));
+    let recommended = null;
+    const tried = [];
+    for (const id of order.slice(0, 4)) {
+      const p = await fetch(`${GEMINI}/${encodeURIComponent(id)}:generateContent`, {
+        method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 16 } }),
+      });
+      tried.push({ id, status: p.status });
+      if (p.ok) { recommended = id; break; }
+      if (p.status === 400 || p.status === 403) break;
+    }
+    return json({ models, recommended: recommended || order[0] || null, tried });
   }
 
   // coach overview

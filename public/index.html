@@ -182,6 +182,7 @@ body.onb{padding-bottom:20px}
     <div class="card" style="padding:12px 14px">
       <div class="lbl" style="margin:0"><span>שאל את המאמן הדיגיטלי</span><button class="chip" id="clearChat" style="padding:3px 10px">ניקוי</button></div>
       <div class="note" id="aiNote">התשובות מבוססות על התוכנית ועל מה שסימנת כבוצע.</div>
+      <div class="note" id="chatModel" style="margin-top:4px"></div>
       <div class="warn hidden" id="gemBox" style="margin-top:8px">כדי לשאול צריך מפתח Gemini חינמי (2 דקות). <a href="#settings" style="color:var(--accent);font-weight:700">להגדרה ←</a></div>
     </div>
     <div class="chips" id="chips"></div>
@@ -596,7 +597,8 @@ function renderSettings(){
       </ol>
       <div class="form" style="margin-top:10px">
         <label>API key<input id="gmKey" class="ltr" value="${esc(GEM.key||'')}" placeholder="AIza..." autocomplete="off" spellcheck="false"></label>
-        <label>מודל <small>אפשר להשאיר ריק</small><input id="gmModel" class="ltr" value="${esc(GEM.model||'')}" placeholder="gemini-flash-latest"></label>
+        <label>מודל <small>הרשימה נטענת לפי המפתח; ברירת המחדל היא מודל שעונה כרגע</small>
+          <div style="display:flex;gap:8px"><select id="gmModel" class="ltr" style="flex:1">${modelOptions()}</select><button class="btn" id="gmLoad" type="button">🔄</button></div></label>
         <div class="row"><span id="gmMsg" class="note"></span><span style="display:flex;gap:8px"><button class="btn" id="gmTest">בדיקה</button><button class="btn pri" id="gmSave">${first?'סיום ✓':'שמירה'}</button></span></div>
         <div class="note">המפתח האישי נשמר רק בדפדפן הזה ונשלח רק ל-Google. בחינם יש מגבלת בקשות, ו-Google רשאית להשתמש בתוכן השאלות לשיפור המוצרים שלה – לא לשתף שם מידע רגיש.</div>
         ${first?'<button class="btn" id="gmSkip">דילוג – אגדיר אחר כך</button>':''}
@@ -620,7 +622,7 @@ function renderSettings(){
     html += `<div class="card"><div class="lbl">יציאה / איפוס</div><button class="btn" id="bkReset" style="color:#dc2626">${SERVER&&CODE?'יציאה מהמכשיר הזה':'איפוס כל הנתונים במכשיר'}</button>
       <div class="note" style="margin-top:6px">${SERVER&&CODE?'הנתונים נשארים בשרת – אפשר לחזור עם הקוד.':''}</div></div>`;
   }
-  html += `<div class="note" style="text-align:center;padding:4px 0 12px">גרסה 13.11 12:30</div>`;
+  html += `<div class="note" style="text-align:center;padding:4px 0 12px">גרסה 13.11 12:35</div>`;
   $('#v-settings').innerHTML = html;
   wireSettings(first);
 }
@@ -676,13 +678,20 @@ function wireSettings(first){
   // gemini
   const gk = $('#gmKey');
   if(gk){
-    const saveGem = ()=>{ GEM = {key:cleanKey(gk.value), model:cleanKey($('#gmModel').value)}; gk.value = GEM.key; store.set('rp.gemini', GEM); updateChatBox(); };
+    const saveGem = ()=>{ const nk = cleanKey(gk.value); const changed = nk !== GEM.key; GEM = Object.assign({}, GEM, {key: nk, model: cleanKey($('#gmModel').value)}); gk.value = GEM.key; store.set('rp.gemini', GEM); updateChatBox(); return changed; };
+    const reload = async (fresh)=>{ const m=$('#gmMsg'); m.className='note'; m.textContent='מחפש מודלים זמינים…';
+      try{ const r = await loadModels(fresh); $('#gmModel').innerHTML = modelOptions(); m.className='okmsg'; m.textContent = `נמצאו ${GEM.models.length} מודלים · נבחר ${GEM.model}`; return r; }
+      catch(e){ m.className='errmsg'; m.textContent='שגיאה: '+(e.message||e); } };
+    $('#gmModel').onchange = ()=>{ GEM.model = $('#gmModel').value; store.set('rp.gemini', GEM); renderChatModel(); };
+    gk.addEventListener('change', ()=>{ if(saveGem()) reload(true); });
+    on('#gmLoad', ()=>{ saveGem(); reload(false); });
+    if(!(GEM.models||[]).length && (GEM.key || (SERVER && SERVER.sharedChat))) reload(true);
     on('#gmTest', async ()=>{
       saveGem(); const m=$('#gmMsg'); m.className='note'; m.textContent='בודק…';
       try{ const t = await gemini([{role:'user',content:'ענה במילה אחת: מוכן?'}], 'אתה עוזר קצר.'); m.className='okmsg'; m.textContent='המפתח עובד ✓ ('+t.model+')'; }
       catch(e){ m.className='errmsg'; m.textContent='שגיאה: '+(e.message||e); }
     });
-    on('#gmSave', ()=>{ saveGem(); if(first) nextStep(); else { $('#gmMsg').className='okmsg'; $('#gmMsg').textContent='נשמר ✓'; } });
+    on('#gmSave', async ()=>{ if(saveGem()) await reload(true); if(first) nextStep(); else { $('#gmMsg').className='okmsg'; $('#gmMsg').textContent='נשמר ✓ · מודל: '+(GEM.model||'ברירת מחדל'); } });
     on('#gmSkip', ()=>nextStep());
   }
   // account
@@ -705,17 +714,35 @@ function wireSettings(first){
     ONBOARDING=true; setupStep = SERVER?'start':'profile'; renderAll(); route(); });
 }
 
+// ---------- model list ----------
+function modelOptions(){
+  const list = GEM.models || [];
+  if(!list.length) return `<option value="${esc(GEM.model||'')}">${esc(GEM.model||'אוטומטי (ברירת מחדל)')}</option>`;
+  return list.map(m=>`<option value="${esc(m.id)}" ${m.id===GEM.model?'selected':''}>${esc(m.label)} · ${esc(m.id)}</option>`).join('');
+}
+async function loadModels(fresh){
+  const key = cleanKey(GEM.key);
+  const q = fresh ? '' : ('?prefer=' + encodeURIComponent(GEM.model||''));
+  const d = await apiFetch('/api/models'+q, {headers: key ? {'x-gemini-key': key} : {}});
+  GEM.models = d.models || [];
+  const keep = !fresh && GEM.model && GEM.models.some(m=>m.id===GEM.model);
+  if(!keep) GEM.model = d.recommended || (GEM.models[0]||{}).id || '';
+  store.set('rp.gemini', GEM); renderChatModel();
+  return d;
+}
+function renderChatModel(){ const el=$('#chatModel'); if(el) el.innerHTML = `מודל: <span dir="ltr">${esc(GEM.model||'אוטומטי')}</span> · <a href="#settings" style="color:var(--accent)">החלפה</a>`; }
+
 // ---------- AI ----------
 async function gemini(msgs, system){
   const key = cleanKey(GEM.key);
   if(!key) throw new Error('אין מפתח Gemini – הגדר אותו בהגדרות.');
   if(/^https?:$/.test(location.protocol)){   // go through our server: avoids browser/CORS issues (notably Safari)
     try{
-      const d = await apiFetch('/api/chat',{method:'POST', headers:{'content-type':'application/json','x-gemini-key':key}, body: JSON.stringify({code: CODE||'', system, messages: msgs})});
+      const d = await apiFetch('/api/chat',{method:'POST', headers:{'content-type':'application/json','x-gemini-key':key}, body: JSON.stringify({code: CODE||'', system, messages: msgs, model: GEM.model||''})});
       return {text: d.text, model: d.model};
     }catch(e){ if(e.status !== 404) throw e; }   // 404 = no server here (e.g. static hosting) → call Google directly
   }
-  const models = GEM.model ? [GEM.model] : GEM_MODELS;
+  const models = [...new Set([GEM.model, ...GEM_MODELS].filter(Boolean))];
   let lastErr;
   for(const model of models){
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
@@ -724,7 +751,7 @@ async function gemini(msgs, system){
     let j={}; try{ j = await r.json(); }catch(e){}
     if(r.ok) return {text: j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '(אין תשובה)', model};
     lastErr = new Error(r.status===429 ? 'הגעת למגבלת הבקשות החינמית. נסה שוב בעוד דקה.' : (j?.error?.message || ('HTTP '+r.status)));
-    if(r.status!==404) break;   // only fall through to the next model when this one doesn't exist
+    if([400,401,403].includes(r.status)) break;   // key problem – another model won't help
   }
   throw lastErr;
 }
@@ -759,7 +786,7 @@ ${Object.values(uniq).map(d=>`[${d.date} ${d.type} ${d.km}]: ${tok(d.desc).repla
 function md(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/^#+\s*(.+)$/gm,'<strong>$1</strong>').replace(/^[-*]\s+/gm,'• '); }
 function renderChat(){
   $('#chips').innerHTML = CHIPS.map(c=>`<button class="chip">${esc(c)}</button>`).join('');
-  $('#chat').innerHTML = CHAT.length ? CHAT.map(m=>`<div class="msg ${m.role==='user'?'u':'a'}">${m.role==='user'?esc(m.content):md(m.content)}</div>`).join('')
+  $('#chat').innerHTML = CHAT.length ? CHAT.map(m=>`<div class="msg ${m.role==='user'?'u':'a'}">${m.role==='user'?esc(m.content):md(m.content)+(m.model?`<div class="note" style="margin-top:6px;font-size:11px;direction:ltr;text-align:left">${esc(m.model)}</div>`:'')}</div>`).join('')
     : `<div class="note" style="text-align:center;padding:20px">שאל כל דבר על התוכנית, על אימון מסוים או על ההתקדמות שלך.</div>`;
   updateChatBox();
 }
@@ -773,15 +800,15 @@ async function ask(text){
   const msgs = CHAT.slice(0,-1).slice(-12);
   try{
     if(!GEM.key && SERVER && SERVER.sharedChat && CODE){
-      const d = await apiFetch('/api/chat',{method:'POST', body: JSON.stringify({code: CODE, system: planContext(), messages: msgs})});
-      CHAT[idx].content = d.text;
+      const d = await apiFetch('/api/chat',{method:'POST', body: JSON.stringify({code: CODE, system: planContext(), messages: msgs, model: GEM.model||''})});
+      CHAT[idx].content = d.text; CHAT[idx].model = d.model;
     } else if(sample && !GEM.key){
       const input = [{role:'user',content:planContext()+'\n\n---\nשאלה ראשונה של המתאמן מתחילה כאן.'},{role:'assistant',content:'הבנתי. אני מכיר את התוכנית ומוכן לשאלות.'}, ...msgs];
       const res = await sample(input,{cache:false, onText:({text})=>{CHAT[idx].content=text||'…'; updateLast(idx);}});
       CHAT[idx].content = res.text;
     } else {
       if(!GEM.key) throw new Error('צריך מפתח Gemini – הגדר אותו בהגדרות.');
-      CHAT[idx].content = (await gemini(msgs, planContext())).text;
+      const g = await gemini(msgs, planContext()); CHAT[idx].content = g.text; CHAT[idx].model = g.model;
     }
   }catch(e){
     const c = e?.code;
@@ -820,7 +847,7 @@ $('#clearChat').onclick = ()=>{ CHAT.length=0; renderChat(); };
 window.addEventListener('hashchange', route);
 setInterval(()=>{ const t=iso(new Date()); if(t!==TODAY){ TODAY=t; renderAll(); } }, 60000);
 
-renderAll(); route();
+renderAll(); route(); renderChatModel();
 initServer();
 
 // Optional: when opened inside Claude, its built-in model can answer without a Gemini key.
