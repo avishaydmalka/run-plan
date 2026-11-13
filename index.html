@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>תוכנית ריצה – חצי מרתון ת"א 2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&family=Rubik:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f1ec; --card:#fffdf9; --ink:#1b2430; --muted:#6b7280; --line:#e6e0d6;
+  --accent:#ff5a1f; --accent-soft:#ffe6db; --ok:#15803d; --ok-soft:#dcfce7;
+  --navy:#14213d;
+  --t-hill:#c2410c; --t-lsd:#1d4ed8; --t-fart:#7c3aed; --t-comb:#0f766e; --t-z1:#64748b;
+  --t-prog:#b45309; --t-int:#be123c; --t-tempo:#a21caf; --t-test:#0369a1; --t-race:#ff5a1f; --t-rest:#c9c3b8;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bot:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f141b;--card:#18202b;--ink:#eef1f5;--muted:#9aa3af;--line:#283241;--accent-soft:#3a2016;--ok-soft:#12301f;--navy:#0b1220;--t-rest:#3a4452}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Heebo,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding-top:var(--safe-top);padding-bottom:calc(72px + var(--safe-bot))}
+h1,h2,h3,.num{font-family:Rubik,Heebo,sans-serif}
+button{font:inherit;color:inherit}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+header.top{background:var(--navy);color:#fff;padding:18px 16px 22px;border-radius:0 0 22px 22px}
+header.top .wrap{padding:0 16px}
+.top-row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.top h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.2px}
+.top .sub{opacity:.75;font-size:13px;margin-top:2px}
+.count{text-align:center;background:rgba(255,255,255,.08);border-radius:14px;padding:8px 12px;min-width:84px}
+.count .num{font-size:28px;font-weight:800;line-height:1;color:var(--accent)}
+.count small{font-size:11px;opacity:.8}
+.phasebar{display:flex;gap:3px;margin-top:16px}
+.phasebar div{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.15);position:relative}
+.phasebar div.done{background:rgba(255,255,255,.55)}
+.phasebar div.now{background:var(--accent)}
+.phaselbl{display:flex;justify-content:space-between;font-size:11px;opacity:.75;margin-top:6px}
+
+nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px 4px calc(6px + var(--safe-bot));z-index:20}
+nav.tabs a{flex:1;text-align:center;text-decoration:none;color:var(--muted);font-size:12px;padding:4px 0;border-radius:10px}
+nav.tabs a .ic{display:block;font-size:20px;line-height:1.2}
+nav.tabs a.on{color:var(--accent);font-weight:700}
+
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.hero{border:none;color:#fff;position:relative;overflow:hidden}
+.hero .lbl{color:rgba(255,255,255,.8)}
+.hero h2{margin:2px 0 4px;font-size:30px;font-weight:800}
+.hero .meta{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.18)}
+.pill.l{background:var(--accent-soft);color:var(--accent)}
+.desc{white-space:pre-line;line-height:1.6;font-size:15px}
+.hero .desc{background:rgba(0,0,0,.14);border-radius:12px;padding:12px;font-size:14.5px}
+.extra{margin-top:8px;font-size:13px;font-weight:600;opacity:.9}
+.mini{display:flex;gap:12px;align-items:center}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.mini .t{font-weight:700}
+.mini .k{color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 14px;font-weight:600;cursor:pointer}
+a.btn{text-decoration:none;display:inline-block;text-align:center}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn:disabled{opacity:.5}
+.donebadge{display:inline-flex;gap:4px;align-items:center;background:var(--ok-soft);color:var(--ok);font-weight:700;font-size:12px;padding:3px 10px;border-radius:999px}
+
+.weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.ws{background:var(--bg);border-radius:12px;padding:8px 2px;text-align:center;cursor:pointer;border:2px solid transparent}
+.ws.today{border-color:var(--accent)}
+.ws .d{font-size:11px;color:var(--muted)}
+.ws .n{font-family:Rubik;font-weight:700;font-size:16px}
+.ws .b{height:4px;border-radius:2px;margin:5px 8px 0}
+.ws .km{font-size:11px;color:var(--muted);margin-top:3px;min-height:14px}
+.ws.done .n{color:var(--ok)}
+.progress{height:10px;background:var(--bg);border-radius:6px;overflow:hidden;margin-top:8px}
+.progress>div{height:100%;background:var(--ok);border-radius:6px}
+
+/* calendar */
+.calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.calhead h2{margin:0;font-size:20px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.cal .dn{font-size:11px;text-align:center;color:var(--muted);padding-bottom:4px}
+.cell{min-height:64px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.cell.out{opacity:.35;cursor:default}
+.cell.today{outline:2px solid var(--accent);outline-offset:-1px}
+.cell .n{font-family:Rubik;font-size:12px;font-weight:700;display:flex;justify-content:space-between}
+.cell .tg{font-size:9.5px;font-weight:700;color:#fff;border-radius:5px;padding:1px 1px;white-space:nowrap;overflow:hidden;text-overflow:clip;text-align:center;letter-spacing:-.2px}
+.cell .km{font-size:10px;color:var(--muted)}
+.cell.rest .tg{display:none}
+.legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:12px;color:var(--muted);margin-top:12px}
+.legend span{display:inline-flex;gap:5px;align-items:center}
+
+/* weeks */
+.wk{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.wk:last-child{border-bottom:none}
+.wk .wn{font-family:Rubik;font-weight:800;font-size:20px;text-align:center}
+.wk .wn small{display:block;font-size:10px;font-weight:500;color:var(--muted)}
+.wk .bar{height:8px;background:var(--bg);border-radius:4px;position:relative;margin-top:6px}
+.wk .bar i{position:absolute;inset:0 0 0 auto;border-radius:4px;opacity:.35}
+.wk .bar b{position:absolute;inset:0 0 0 auto;border-radius:4px;background:var(--ok)}
+.wk.cur{background:var(--accent-soft);border-radius:12px;padding-inline:8px}
+.wk .h{display:flex;justify-content:space-between;font-size:14px}
+.wk .h .p{font-weight:700}
+.wk .h .v{color:var(--muted);font-size:13px}
+
+/* sheet (day modal) */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:none}
+.scrim.on{display:block}
+.sheet{visibility:hidden;position:fixed;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;background:var(--card);border-radius:22px 22px 0 0;padding:8px 16px calc(20px + var(--safe-bot));z-index:41;transform:translateY(105%);transition:transform .25s ease}
+.sheet.on{transform:none;visibility:visible}
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
+.sheet h3{margin:4px 0 2px;font-size:22px}
+.sheet .wrapi{max-width:720px;margin:0 auto}
+.logbox{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);display:grid;gap:10px}
+.logbox label{font-size:13px;color:var(--muted);display:grid;gap:4px}
+.logbox input,.logbox textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.logbox textarea{min-height:60px;resize:vertical}
+.note{font-size:12px;color:var(--muted)}
+
+/* chat */
+.chat{display:flex;flex-direction:column;gap:10px;min-height:40vh}
+.msg{max-width:88%;padding:10px 13px;border-radius:16px;line-height:1.55;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+.msg.u{align-self:flex-start;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.a{align-self:flex-end;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.a strong{font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+.composer{position:sticky;bottom:calc(70px + var(--safe-bot));display:flex;gap:8px;background:var(--bg);padding:8px 0}
+.composer textarea{flex:1;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;resize:none;height:46px;max-height:120px}
+.warn{background:var(--accent-soft);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5}
+.gem{display:grid;gap:6px;margin-top:8px}
+.gem input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;direction:ltr}
+.hidden{display:none!important}
+body.onb nav.tabs{display:none}
+body.onb{padding-bottom:20px}
+.gear{text-decoration:none;display:inline-block;background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:12px;padding:6px 10px;font-size:13px;cursor:pointer;margin-top:8px}
+.form{display:grid;gap:12px}
+.form label{display:grid;gap:5px;font-size:14px;font-weight:600}
+.form label small{font-weight:400;color:var(--muted);font-size:12px}
+.form input,.form select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
+.form input.ltr{direction:ltr;text-align:left}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.steps{margin:0;padding-inline-start:20px;line-height:1.7;font-size:14.5px}
+.steps a{color:var(--accent);font-weight:700}
+.zones{display:grid;grid-template-columns:1fr auto auto;gap:6px 12px;font-size:14px;align-items:center}
+.zones .h{font-size:12px;color:var(--muted);font-weight:700}
+.zones .num{font-weight:700}
+.welcome{background:linear-gradient(135deg,var(--navy),#2b3a67);color:#fff;border:none}
+.welcome h2{margin:0 0 6px;font-size:24px}
+.stepper{display:flex;gap:6px;margin:10px 0 2px}.stepper i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25)}.stepper i.on{background:var(--accent)}
+.okmsg{color:var(--ok);font-weight:700;font-size:13px}.errmsg{color:#dc2626;font-weight:600;font-size:13px}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:14px;padding:10px 12px;margin-bottom:14px;font-size:14px}
+
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <div>
+        <h1>חצי מרתון ת"א · 26.2.27</h1>
+        <div class="sub" id="hdrSub"></div>
+        <a class="gear" href="#settings" id="gearBtn">⚙️ <span id="hdrName">הגדרות</span></a>
+      </div>
+      <div class="count"><div class="num" id="cdNum">–</div><small id="cdLbl">ימים למרוץ</small></div>
+    </div>
+    <div class="phasebar" id="phasebar"></div>
+    <div class="phaselbl"><span>בסיס</span><span>בנייה</span><span>שיא · חידוד · 🏁</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="view" id="v-today"></section>
+  <section class="view" id="v-calendar"></section>
+  <section class="view" id="v-weeks"></section>
+  <section class="view" id="v-settings"></section>
+  <section class="view" id="v-chat">
+    <div class="card" style="padding:12px 14px">
+      <div class="lbl" style="margin:0"><span>שאל את המאמן הדיגיטלי</span><button class="chip" id="clearChat" style="padding:3px 10px">ניקוי</button></div>
+      <div class="note" id="aiNote">התשובות מבוססות על התוכנית ועל מה שסימנת כבוצע.</div>
+      <div class="warn hidden" id="gemBox" style="margin-top:8px">כדי לשאול צריך מפתח Gemini חינמי (2 דקות). <a href="#settings" style="color:var(--accent);font-weight:700">להגדרה ←</a></div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="chat" id="chat"></div>
+    <div class="composer">
+      <textarea id="q" placeholder="למשל: מה סיכום השבוע?"></textarea>
+      <button class="btn pri" id="send">שלח</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <a href="#today" data-v="today"><span class="ic">🏃</span>היום</a>
+  <a href="#calendar" data-v="calendar"><span class="ic">📅</span>לוח שנה</a>
+  <a href="#weeks" data-v="weeks"><span class="ic">📊</span>שבועות</a>
+  <a href="#chat" data-v="chat"><span class="ic">💬</span>שאל</a>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"><div class="wrapi"><div class="grab"></div><div id="sheetBody"></div></div></div>
+
+<script id="plan" type="application/json">{"days": [{"date": "2026-11-15", "dow": "ראשון", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "עליות", "km": "8.5", "desc": "חימום: 3 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 6 עליות של 250 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 2.5 ק\"מ קליל", "extra": ""}, {"date": "2026-11-16", "dow": "שני", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-11-17", "dow": "שלישי", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-18", "dow": "רביעי", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-19", "dow": "חמישי", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-20", "dow": "שישי", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "LSD", "km": "13", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-11-21", "dow": "שבת", "week": 1, "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע כניסה", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-22", "dow": "ראשון", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "עליות", "km": "9", "desc": "חימום: 3 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 7 עליות של 250 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 2.5 ק\"מ קליל", "extra": ""}, {"date": "2026-11-23", "dow": "שני", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-11-24", "dow": "שלישי", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-25", "dow": "רביעי", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "פרטלק", "km": "12", "desc": "חימום: 15 דקות ריצה קלה, 4 דקות הגברה מדורגת כל דקה מהירה במקצת מהקודמת ועד לקצב בינוני.\n\nעיקרי: 3*\n0:30 מהיר, 1:30 קל\n0:45 מהיר, 1:15 קל\n1:00 מהיר, 1:00 קל\n1:15 מהיר, 0:45 קל\n1:30 מהיר, 0:30 קל\nלאחר הסט האחרון ריצה אחת בת 2:00 מהירה ואז\nשחרור: כ-15 דקות ריצה קלילה\n\nמהיר= תחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום לקשה לנשום\nבינוני= מתחיל להיות לא נעים לדבר\nקל= ללא שום קושי נשימתי. קצב התאוששות קליל\n\nסה\"כ אימון של כ-72 דקות. השלמת שחרור עד 12 ק\"מ", "extra": "סה\"כ ~16 דקות מצטבר על הסח\"ח"}, {"date": "2026-11-26", "dow": "חמישי", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-27", "dow": "שישי", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "LSD", "km": "15", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-11-28", "dow": "שבת", "week": 2, "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-11-29", "dow": "ראשון", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "עליות", "km": "9.5", "desc": "חימום: 3 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 8 עליות של 250 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 2.5 ק\"מ קליל", "extra": ""}, {"date": "2026-11-30", "dow": "שני", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-12-01", "dow": "שלישי", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-02", "dow": "רביעי", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "פרטלק", "km": "10", "desc": "חימום: 10 דקות ריצה קלה, 4 דקות הגברה מדורגת כל דקה מהירה במקצת מהקודמת ועד לקצב בינוני.\n\nעיקרי: 3*\n0:30 מהיר, 1:30 קל\n0:45 מהיר, 1:15 קל\n1:00 מהיר, 1:00 קל\n1:15 מהיר, 0:45 קל\n1:30 מהיר, 0:30 קל\nלאחר הסט האחרון ריצה אחת בת 2:00 מהירה ואז\nשחרור: כ-10 דקות ריצה קלילה\n\nמהיר= תחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום לקשה לנשום\nבינוני= מתחיל להיות לא נעים לדבר\nקל= ללא שום קושי נשימתי. קצב התאוששות קליל\n\nהשלמת שחרור עד 10 ק\"מ", "extra": "סה\"כ ~16 דקות מצטבר על הסח\"ח"}, {"date": "2026-12-03", "dow": "חמישי", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-04", "dow": "שישי", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "LSD", "km": "16", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-12-05", "dow": "שבת", "week": 3, "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-06", "dow": "ראשון", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "LSD", "km": "12", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-12-07", "dow": "שני", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-12-08", "dow": "שלישי", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-09", "dow": "רביעי", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "Z1", "km": "6", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}\nבסוף: 3 מתגברות עדינות של 10 שניות. שומרים רגליים רעננות לטסט.", "extra": ""}, {"date": "2026-12-10", "dow": "חמישי", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-11", "dow": "שישי", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "טסט 10 ק\"מ", "km": "14", "desc": "חימום 2 ק\"מ קל, חימום ספציפי קצר, 3 מתגברות של 10 שניות\nעיקרי: 10 ק\"מ הכי מהר שרק ניתן. הנתון החשוב ביותר הוא דופק ממוצע ל-10 ק\"מ האלו (דופק סח\"ח מעודכן).\nמבחינת קצב נסה לכוון ל-{{p:5:08}} דק'/ק\"מ\nשחרור: 2 ק\"מ קל\n👈 אחרי הטסט: עדכן את התוצאה והדופק הממוצע בהגדרות — כל הקצבים והדפקים יתעדכנו אוטומטית.", "extra": ""}, {"date": "2026-12-12", "dow": "שבת", "week": 4, "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "שבוע טסט 10 ק\"מ — עדכון קצבים", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-13", "dow": "ראשון", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "עליות", "km": "12", "desc": "חימום: 4.2 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 6 עליות של 400 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 5.4 ק\"מ קליל", "extra": ""}, {"date": "2026-12-14", "dow": "שני", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-12-15", "dow": "שלישי", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-16", "dow": "רביעי", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "פרטלק", "km": "13", "desc": "חימום: 20 דקות ריצה קלה, 4 דקות הגברה מדורגת כל דקה מהירה במקצת מהקודמת ועד לקצב בינוני.\n\nעיקרי: 3*\n0:45 מהיר, 1:15 קל\n1:00 מהיר, 1:00 קל\n1:15 מהיר, 0:45 קל\n1:30 מהיר, 0:30 קל\n1:45 מהיר, 0:15 קל\nשחרור: כ-20 דקות ריצה קלילה\n\nמהיר= תחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום לקשה לנשום\nבינוני= מתחיל להיות לא נעים לדבר\nקל= ללא שום קושי נשימתי. קצב התאוששות קליל\n\nסה\"כ אימון של כ-70 דקות. השלמת שחרור עד 13 ק\"מ", "extra": "סה\"כ ~18 דקות מצטבר על הסח\"ח"}, {"date": "2026-12-17", "dow": "חמישי", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-18", "dow": "שישי", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "LSD", "km": "18", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-12-19", "dow": "שבת", "week": 5, "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-20", "dow": "ראשון", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "עליות", "km": "12.5", "desc": "חימום: 4.3 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 7 עליות של 400 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 5.4 ק\"מ קליל", "extra": ""}, {"date": "2026-12-21", "dow": "שני", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-12-22", "dow": "שלישי", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-23", "dow": "רביעי", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "ריצה מתגברת", "km": "10", "desc": "4 ק\"מ על קצב קל\n1 ק\"מ על קצב {{p:5:20}} דק'/ק\"מ\n1 ק\"מ על קצב {{p:5:12}} דק'/ק\"מ\n1 ק\"מ על קצב {{p:5:05}} דק'/ק\"מ\n1 ק\"מ על קצב {{p:5:00}} דק'/ק\"מ\n1 ק\"מ על קצב {{p:4:55}} דק'/ק\"מ\n1 ק\"מ על קצב קל", "extra": "סה\"כ ~19 דקות מצטבר על הסח\"ח"}, {"date": "2026-12-24", "dow": "חמישי", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "Z1", "km": "5", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-12-25", "dow": "שישי", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "LSD", "km": "19", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2026-12-26", "dow": "שבת", "week": 6, "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-27", "dow": "ראשון", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "עליות", "km": "10", "desc": "חימום: 4 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 5 עליות של 400 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 3.5 ק\"מ קליל", "extra": ""}, {"date": "2026-12-28", "dow": "שני", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2026-12-29", "dow": "שלישי", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2026-12-30", "dow": "רביעי", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "פרטלק", "km": "10", "desc": "חימום: 10 דקות ריצה קלה, 4 דקות הגברה מדורגת כל דקה מהירה במקצת מהקודמת ועד לקצב בינוני.\n\nעיקרי: 3*\n0:30 מהיר, 1:30 קל\n0:45 מהיר, 1:15 קל\n1:00 מהיר, 1:00 קל\n1:15 מהיר, 0:45 קל\n1:30 מהיר, 0:30 קל\nלאחר הסט האחרון ריצה אחת בת 2:00 מהירה ואז\nשחרור: כ-10 דקות ריצה קלילה\n\nמהיר= תחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום לקשה לנשום\nבינוני= מתחיל להיות לא נעים לדבר\nקל= ללא שום קושי נשימתי. קצב התאוששות קליל\n\nהשלמת שחרור עד 10 ק\"מ", "extra": ""}, {"date": "2026-12-31", "dow": "חמישי", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-01", "dow": "שישי", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "LSD", "km": "15", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-02", "dow": "שבת", "week": 7, "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-03", "dow": "ראשון", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "עליות", "km": "13", "desc": "חימום: 4.4 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 8 עליות של 400 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 5.4 ק\"מ קליל", "extra": ""}, {"date": "2027-01-04", "dow": "שני", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-01-05", "dow": "שלישי", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "Z1", "km": "5", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-06", "dow": "רביעי", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "פרטלק", "km": "12", "desc": "חימום: 15 דקות ריצה קלה, 4 דקות הגברה מדורגת כל דקה מהירה במקצת מהקודמת ועד לקצב בינוני.\n\nעיקרי: 4*\n0:30 מהיר, 1:30 קל\n0:45 מהיר, 1:15 קל\n1:00 מהיר, 1:00 קל\n1:15 מהיר, 0:45 קל\n1:30 מהיר, 0:30 קל\nלאחר הסט האחרון ריצה אחת בת 1:00 מהירה ואז\nשחרור: כ-15 דקות ריצה קלילה\n\nמהיר= תחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום לקשה לנשום\nבינוני= מתחיל להיות לא נעים לדבר\nקל= ללא שום קושי נשימתי. קצב התאוששות קליל\n\nסה\"כ אימון של כ-72 דקות. השלמת שחרור עד 12 ק\"מ", "extra": "סה\"כ ~21 דקות מצטבר על הסח\"ח"}, {"date": "2027-01-07", "dow": "חמישי", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-08", "dow": "שישי", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "LSD", "km": "20", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-09", "dow": "שבת", "week": 8, "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-10", "dow": "ראשון", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "אינטרוולים", "km": "13", "desc": "חימום: 4 ק\"מ ריצה קלילה, 3 מתגברות עדינות של 10 שניות.\nעיקרי: 5*1000 על קצב ~{{p:5:00}} דק'/ק\"מ. בין לבין 400 מטר קליל כמו קצב הליכה, שייקח לפחות 3 דקות.\nשחרור: 4 ק\"מ קליל\n\nנא לבצע את האימון במקום שטוח: אצטדיון / פארק הירקון", "extra": ""}, {"date": "2027-01-11", "dow": "שני", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-01-12", "dow": "שלישי", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-13", "dow": "רביעי", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "ריצה מתגברת", "km": "13.5", "desc": "ריצה רצופה ומתגברת של 13 ק\"מ:\n4 ק\"מ קצב קליל Z1 (דופק {{hr:easy}}), אין שום קושי נשימתי\n4 ק\"מ בקצב נוח-בינוני. טווח דופק {{hr:z23}}\n2.5 ק\"מ על הסח\"ח (דופק ~{{hr:lt}}) ~ קצב {{p:5:08}} דק'/ק\"מ.\n2 ק\"מ קל ב-Z1", "extra": "סה\"כ ~14 דקות מצטבר על הסח\"ח"}, {"date": "2027-01-14", "dow": "חמישי", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "Z1", "km": "5", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-15", "dow": "שישי", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "LSD", "km": "21", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-16", "dow": "שבת", "week": 9, "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-17", "dow": "ראשון", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "עליות", "km": "12", "desc": "חימום: 4.2 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 6 עליות של 400 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 5.4 ק\"מ קליל", "extra": ""}, {"date": "2027-01-18", "dow": "שני", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-01-19", "dow": "שלישי", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-20", "dow": "רביעי", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "טמפו", "km": "13", "desc": "חימום: 3 ק\"מ ריצה קלה, 1 ק\"מ הגברה מדורגת כל 200 מטר.\n\nעיקרי: 8 ק\"מ בקצב מטרה לחצי מרתון ~{{p:5:38}}-{{p:5:40}} דק'/ק\"מ\n\nשחרור: 2 ק\"מ ריצה קלילה", "extra": ""}, {"date": "2027-01-21", "dow": "חמישי", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-22", "dow": "שישי", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "LSD", "km": "16", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-23", "dow": "שבת", "week": 10, "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-24", "dow": "ראשון", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "אינטרוולים", "km": "14", "desc": "חימום: 4 ק\"מ ריצה קלילה, 3 מתגברות עדינות של 10 שניות.\nעיקרי: 6*1000 על קצב ~{{p:5:00}} דק'/ק\"מ. בין לבין 400 מטר קליל כמו קצב הליכה, שייקח לפחות 3 דקות.\nשחרור: 4 ק\"מ קליל\n\nנא לבצע את האימון במקום שטוח: אצטדיון / פארק הירקון", "extra": ""}, {"date": "2027-01-25", "dow": "שני", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-01-26", "dow": "שלישי", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "Z1", "km": "6", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-27", "dow": "רביעי", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "טמפו", "km": "15", "desc": "חימום: 3 ק\"מ ריצה קלה, 1 ק\"מ הגברה מדורגת כל 200 מטר.\n\nעיקרי: 10 ק\"מ בקצב מטרה לחצי מרתון ~{{p:5:38}}-{{p:5:40}} דק'/ק\"מ\n\nשחרור: 1 ק\"מ ריצה קלילה", "extra": ""}, {"date": "2027-01-28", "dow": "חמישי", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-29", "dow": "שישי", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "LSD", "km": "22", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-01-30", "dow": "שבת", "week": 11, "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-01-31", "dow": "ראשון", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "אינטרוולים", "km": "13", "desc": "חימום: 4 ק\"מ ריצה קלילה, 3 מתגברות עדינות של 10 שניות.\nעיקרי: 5*1000 על קצב ~{{p:5:00}} דק'/ק\"מ. בין לבין 400 מטר קליל כמו קצב הליכה, שייקח לפחות 3 דקות.\nשחרור: 4 ק\"מ קליל\n\nנא לבצע את האימון במקום שטוח: אצטדיון / פארק הירקון", "extra": ""}, {"date": "2027-02-01", "dow": "שני", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-02-02", "dow": "שלישי", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-03", "dow": "רביעי", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "טמפו", "km": "16", "desc": "חימום: 3 ק\"מ ריצה קלה, 1 ק\"מ הגברה מדורגת כל 200 מטר.\n\nעיקרי: 11 ק\"מ בקצב מטרה לחצי מרתון ~{{p:5:38}}-{{p:5:40}} דק'/ק\"מ\n\nשחרור: 2 ק\"מ ריצה קלילה", "extra": ""}, {"date": "2027-02-04", "dow": "חמישי", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "Z1", "km": "8", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-02-05", "dow": "שישי", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "LSD", "km": "24", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-02-06", "dow": "שבת", "week": 12, "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "weekNote": "שבוע העומס הגבוה בתוכנית", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-07", "dow": "ראשון", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "עליות", "km": "10", "desc": "חימום: 4 ק\"מ ריצה קלילה. לקראת הסוף 3 מתגברות עדינות של 10 שניות.\nעיקרי: 5 עליות של 400 מטר בשיפוע 5%. עלייה בתחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום, לקשה לנשום. קרוב לקצב תחרות 10 ק\"מ עדכני ~ {{p:5:08}} דק'/ק\"מ.\nירידה ריצה קלילה כמו הליכה ויציאה ישר לעליה הבאה.\nשחרור: 3.5 ק\"מ קליל", "extra": ""}, {"date": "2027-02-08", "dow": "שני", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-02-09", "dow": "שלישי", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-10", "dow": "רביעי", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "פרטלק", "km": "10", "desc": "חימום: 10 דקות ריצה קלה, 4 דקות הגברה מדורגת כל דקה מהירה במקצת מהקודמת ועד לקצב בינוני.\n\nעיקרי: 3*\n0:30 מהיר, 1:30 קל\n0:45 מהיר, 1:15 קל\n1:00 מהיר, 1:00 קל\n1:15 מהיר, 0:45 קל\n1:30 מהיר, 0:30 קל\nלאחר הסט האחרון ריצה אחת בת 2:00 מהירה ואז\nשחרור: כ-10 דקות ריצה קלילה\n\nמהיר= תחושת מאמץ סח\"ח (דופק ~{{hr:lt}}). הגבול הדק בין מתחיל להיות קשה לנשום לקשה לנשום\nבינוני= מתחיל להיות לא נעים לדבר\nקל= ללא שום קושי נשימתי. קצב התאוששות קליל\n\nהשלמת שחרור עד 10 ק\"מ", "extra": ""}, {"date": "2027-02-11", "dow": "חמישי", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-12", "dow": "שישי", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "LSD", "km": "16", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-02-13", "dow": "שבת", "week": 13, "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "weekNote": "", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-14", "dow": "ראשון", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "אינטרוולים", "km": "11", "desc": "חימום: 3.5 ק\"מ ריצה קלילה, 3 מתגברות עדינות של 10 שניות.\nעיקרי: 4*1000 על קצב ~{{p:5:00}} דק'/ק\"מ. בין לבין 400 מטר קליל כמו קצב הליכה, שייקח לפחות 3 דקות.\nשחרור: 3.5 ק\"מ קליל\n\nנא לבצע את האימון במקום שטוח: אצטדיון / פארק הירקון", "extra": ""}, {"date": "2027-02-15", "dow": "שני", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "איכות משולב", "km": "6-7", "desc": "איכות משולב — תלוי אימון (6-7 ק\"מ)", "extra": ""}, {"date": "2027-02-16", "dow": "שלישי", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-17", "dow": "רביעי", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "טמפו", "km": "11", "desc": "חימום: 3 ק\"מ ריצה קלה, 1 ק\"מ הגברה מדורגת כל 200 מטר.\n\nעיקרי: 6 ק\"מ בקצב מטרה לחצי מרתון ~{{p:5:38}}-{{p:5:40}} דק'/ק\"מ\n\nשחרור: 2 ק\"מ ריצה קלילה", "extra": ""}, {"date": "2027-02-18", "dow": "חמישי", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-19", "dow": "שישי", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "LSD", "km": "12", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}", "extra": ""}, {"date": "2027-02-20", "dow": "שבת", "week": 14, "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "weekNote": "הורדת נפח, שמירה על חדות", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-21", "dow": "ראשון", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "Z1 + קצב מטרה", "km": "8", "desc": "ריצה קלה 8 ק\"מ, בתוכה 3*1 ק\"מ בקצב מטרה {{p:5:38}}-{{p:5:40}} דק'/ק\"מ עם 2 דקות קל ביניהם.", "extra": ""}, {"date": "2027-02-22", "dow": "שני", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "איכות משולב", "km": "5", "desc": "איכות משולב קליל — רק אם מרגישים רעננים. לא להעמיס.", "extra": ""}, {"date": "2027-02-23", "dow": "שלישי", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-24", "dow": "רביעי", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "Z1", "km": "5", "desc": "ריצה בקצב נוח שניתן לדבר בו חופשי ללא שום קושי נשימתי. ניתן לבצע קל ככל שצריך. אין משמעות לקצב באימון מסוג זה. דופק {{hr:easy}}\nבסוף: 3 מתגברות עדינות של 10 שניות.", "extra": ""}, {"date": "2027-02-25", "dow": "חמישי", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "מנוחה", "km": "", "desc": "", "extra": ""}, {"date": "2027-02-26", "dow": "שישי", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "🏁 חצי מרתון", "km": "21.1", "desc": "מרתון תל אביב — חצי מרתון.\nפתיחה שמרנית ב-2-3 ק\"מ הראשונים, ואז קצב מטרה ~{{p:5:38}}-{{p:5:40}} דק'/ק\"מ. מים בכל תחנה.\nבהצלחה! 🎉", "extra": ""}, {"date": "2027-02-27", "dow": "שבת", "week": 15, "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "weekNote": "שבוע המרוץ", "type": "מנוחה", "km": "", "desc": "", "extra": ""}], "weeks": [{"week": 1, "start": "2026-11-15", "phase": "בסיס 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "note": "שבוע כניסה", "km": 28.0, "sessions": 3, "lsd": 13.0}, {"week": 2, "start": "2026-11-22", "phase": "בסיס 1", "phaseWeek": 2, "cycle": "1 (2:1)", "note": "", "km": 42.5, "sessions": 4, "lsd": 15.0}, {"week": 3, "start": "2026-11-29", "phase": "בסיס 1", "phaseWeek": 3, "cycle": "2 (2:1)", "note": "", "km": 42.0, "sessions": 4, "lsd": 16.0}, {"week": 4, "start": "2026-12-06", "phase": "בסיס 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "note": "שבוע טסט 10 ק\"מ — עדכון קצבים", "km": 38.5, "sessions": 4, "lsd": 12.0}, {"week": 5, "start": "2026-12-13", "phase": "בסיס 2", "phaseWeek": 2, "cycle": "1 (2:1)", "note": "", "km": 49.5, "sessions": 4, "lsd": 18.0}, {"week": 6, "start": "2026-12-20", "phase": "בסיס 2", "phaseWeek": 3, "cycle": "2 (2:1)", "note": "", "km": 53.0, "sessions": 5, "lsd": 19.0}, {"week": 7, "start": "2026-12-27", "phase": "בנייה 1", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "note": "", "km": 41.5, "sessions": 4, "lsd": 15.0}, {"week": 8, "start": "2027-01-03", "phase": "בנייה 1", "phaseWeek": 2, "cycle": "1 (2:1)", "note": "", "km": 56.5, "sessions": 5, "lsd": 20.0}, {"week": 9, "start": "2027-01-10", "phase": "בנייה 1", "phaseWeek": 3, "cycle": "2 (2:1)", "note": "", "km": 59.0, "sessions": 5, "lsd": 21.0}, {"week": 10, "start": "2027-01-17", "phase": "בנייה 2", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "note": "", "km": 47.5, "sessions": 4, "lsd": 16.0}, {"week": 11, "start": "2027-01-24", "phase": "בנייה 2", "phaseWeek": 2, "cycle": "1 (2:1)", "note": "", "km": 63.5, "sessions": 5, "lsd": 22.0}, {"week": 12, "start": "2027-01-31", "phase": "בנייה 2", "phaseWeek": 3, "cycle": "2 (2:1)", "note": "שבוע העומס הגבוה בתוכנית", "km": 67.5, "sessions": 5, "lsd": 24.0}, {"week": 13, "start": "2027-02-07", "phase": "שיא", "phaseWeek": 1, "cycle": "3 - מופחת (2:1)", "note": "", "km": 42.5, "sessions": 4, "lsd": 16.0}, {"week": 14, "start": "2027-02-14", "phase": "חידוד", "phaseWeek": 1, "cycle": "טייפר", "note": "הורדת נפח, שמירה על חדות", "km": 40.5, "sessions": 4, "lsd": 12.0}, {"week": 15, "start": "2027-02-21", "phase": "תחרות", "phaseWeek": 1, "cycle": "תחרות", "note": "שבוע המרוץ", "km": 39.1, "sessions": 4, "lsd": 0}], "race": "2027-02-26", "start": "2026-11-15"}</script>
+<script>
+(function(){
+"use strict";
+const PLAN = JSON.parse(document.getElementById('plan').textContent);
+const DAYS = PLAN.days, WEEKS = PLAN.weeks;
+const byDate = Object.fromEntries(DAYS.map(d=>[d.date,d]));
+const HEB_DOW = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+const HEB_MON = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const REF_P10 = 308;            // template 10K pace (5:08/km) that all plan paces were written for
+const GEM_MODELS = ['gemini-flash-latest','gemini-3.5-flash','gemini-2.5-flash'];
+
+// ---------- storage (per device / browser = per user) ----------
+const store = {
+  get(k, def){ try{ const v = localStorage.getItem(k); return v==null?def:JSON.parse(v); }catch(e){ return def; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+let PROFILE = store.get('rp.profile', null);   // {name, testType, time, testHr, restHr, maxHr}
+let LOG = store.get('rp.log', {});             // date -> {done, km, note}
+let GEM = store.get('rp.gemini', {key:'', model:''});
+let sample = null;
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parse = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return iso(d); };
+let TODAY = iso(new Date());
+const fmt = s => { const d=parse(s); return `${d.getDate()}.${d.getMonth()+1}`; };
+const fmtLong = s => { const d=parse(s); return `יום ${['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'][d.getDay()]}, ${d.getDate()} ב${HEB_MON[d.getMonth()]}`; };
+const kmNum = k => { if(!k) return 0; const p=String(k).split('-').map(Number); return p.reduce((a,b)=>a+b,0)/p.length; };
+const r1 = n => Math.round(n*10)/10;
+const mmss = sec => { sec=Math.round(sec); return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`; };
+const hms = sec => { sec=Math.round(sec); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60; return h?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`; };
+function parseTime(str){
+  const p = String(str||'').trim().split(':').map(x=>x.trim());
+  if(!p.length || p.some(x=>x===''||isNaN(+x))) return null;
+  const n = p.map(Number);
+  if(n.length===2) return n[0]*60+n[1];
+  if(n.length===3) return n[0]*3600+n[1]*60+n[2];
+  return null;
+}
+
+// ---------- thresholds → paces & heart-rate zones ----------
+const TESTS = {
+  '10k_test': {label:'10 ק"מ', km:10,      hrToLt:1.00},
+  '5k_test':  {label:'5 ק"מ',  km:5,       hrToLt:0.97},
+  'hm_race':  {label:'חצי מרתון', km:21.0975, hrToLt:1.03},
+};
+const SOURCES = {race:'תחרות', test:'טסט (הכי מהר שאפשר)', estimate:'הערכה שלי'};
+const EST_FACTOR = 1.03;   // an estimate gets paces ~3% easier until a real test confirms them
+function calc(p){
+  if(!p || p.skipped || !p.time) return null;
+  if(p.testType==='10k_race') p.testType='10k_test';
+  const t = TESTS[p.testType]; if(!t) return null;
+  const est = p.source==='estimate';
+  const t10 = p.time * Math.pow(10 / t.km, 1.06) * (est?EST_FACTOR:1);   // Riegel equivalent 10K
+  const p10 = t10 / 10;
+  const r = p10 / REF_P10;
+  let lt = p.testHr ? Math.round(p.testHr * t.hrToLt) : (p.maxHr ? Math.round(p.maxHr*0.89) : null);
+  const rest = p.restHr || null;
+  const z = {};
+  if(lt){
+    if(rest && rest < lt){ z.easy=[Math.round(rest+(lt-rest)*0.69), Math.round(rest+(lt-rest)*0.78)]; }
+    else { z.easy=[Math.round(lt*0.80), Math.round(lt*0.86)]; }
+    z.z23=[Math.round(lt*0.87), Math.round(lt*0.94)];
+    z.lt=[Math.round(lt*0.97), Math.round(lt*1.01)];
+    z.ltc=lt;
+  }
+  const goal = 339 * r;                                      // template HM goal pace 5:38-5:40
+  return {r, p10, t10, lt, rest, z, goal, hm: goal*21.0975, est, hrEst: !p.testHr && !!lt};
+}
+let C = calc(PROFILE);
+const EFFORT = {'4:55':'מהיר (קצב 5 ק"מ)','5:00':'מעט מהיר מקצב 10 ק"מ','5:05':'קצב 10 ק"מ','5:08':'קצב 10 ק"מ (מאמץ סח"ח)','5:12':'בינוני-מהיר','5:20':'בינוני','5:38':'קצב מטרה לחצי (נוח-קשה)','5:40':'קצב מטרה לחצי'};
+function tok(text){
+  let t = String(text||'');
+  if(!C){
+    t = t.replace(/קרוב לקצב תחרות 10 ק"מ עדכני ~ \{\{p:5:08\}\} דק'\/ק"מ\./g,'קרוב לקצב תחרות 10 ק"מ.')
+         .replace(/מבחינת קצב נסה לכוון ל-\{\{p:5:08\}\} דק'\/ק"מ/g,'מבחינת קצב – מאמץ אחיד ומקסימלי לכל ה-10 ק"מ')
+         .replace(/~ קצב \{\{p:5:08\}\} דק'\/ק"מ\./g,'(בערך קצב 10 ק"מ).')
+         .replace(/(ב?קצב מטרה)( לחצי מרתון)? ~?\{\{p:5:38\}\}-\{\{p:5:40\}\} דק'\/ק"מ/g,'$1 לחצי מרתון (נוח-קשה – אפשר לומר משפטים קצרים)');
+    t = t.replace(/~?\s*\{\{p:(\d+:\d\d)\}\}(?:-\{\{p:\d+:\d\d\}\})?\s*דק'\/ק"מ/g, (_,a)=>EFFORT[a]||'לפי תחושה');
+  }
+  if(!C || !C.z.ltc){
+    t = t.replace(/דופק \{\{hr:easy\}\}/g,'בדופק נמוך – אפשר לדבר בחופשיות')
+         .replace(/\s*\(דופק ~\{\{hr:lt\}\}\)/g,'')
+         .replace(/\(דופק \{\{hr:easy\}\}\)/g,'(שיחה חופשית)')
+         .replace(/טווח דופק \{\{hr:z23\}\}/g,'מאמץ בינוני – מתחיל להיות לא נוח לדבר');
+  }
+  return t
+    .replace(/\{\{p:(\d+):(\d\d)\}\}/g, (_,m,s)=>{ const sec=(+m)*60+(+s); return mmss(C?sec*C.r:sec); })
+    .replace(/\{\{hr:easy\}\}/g, ()=> C&&C.z.easy ? `${C.z.easy[0]}-${C.z.easy[1]}` : '130-140')
+    .replace(/\{\{hr:z23\}\}/g,  ()=> C&&C.z.z23 ? `${C.z.z23[0]}-${C.z.z23[1]}` : 'Z2-3')
+    .replace(/\{\{hr:lt\}\}/g,   ()=> C&&C.z.ltc ? `${C.z.ltc}` : 'סף');
+}
+
+// ---------- plan helpers ----------
+function typeColor(t){
+  if(!t || t==='מנוחה') return 'var(--t-rest)';
+  if(t.includes('חצי')) return 'var(--t-race)';
+  if(t.includes('עליות')) return 'var(--t-hill)';
+  if(t.includes('LSD')) return 'var(--t-lsd)';
+  if(t.includes('פרטלק')) return 'var(--t-fart)';
+  if(t.includes('משולב')) return 'var(--t-comb)';
+  if(t.includes('מתגברת')) return 'var(--t-prog)';
+  if(t.includes('אינטרוול')) return 'var(--t-int)';
+  if(t.includes('טמפו')) return 'var(--t-tempo)';
+  if(t.includes('טסט')) return 'var(--t-test)';
+  return 'var(--t-z1)';
+}
+function shortType(t){
+  if(t.includes('חצי')) return '🏁 מרוץ';
+  if(t.includes('משולב')) return 'משולב';
+  if(t.includes('מתגברת')) return 'מתגברת';
+  if(t.includes('אינטרוול')) return 'אינטרו׳';
+  if(t.includes('טסט')) return 'טסט 10';
+  if(t.includes('Z1')) return 'Z1';
+  return t;
+}
+const isRest = d => !d || d.type==='מנוחה';
+const weekOf = s => { const d=byDate[s]; return d ? WEEKS[d.week-1] : null; };
+const weekDays = w => DAYS.filter(d=>d.week===w.week);
+const doneKm = w => weekDays(w).reduce((a,d)=>a+(LOG[d.date]?.done ? (Number(LOG[d.date].km)||kmNum(d.km)) : 0),0);
+
+// ---------- header ----------
+function renderHeader(){
+  const days = Math.round((parse(PLAN.race)-parse(TODAY))/864e5);
+  $('#cdNum').textContent = days>0 ? days : (days===0 ? '🏁' : '✓');
+  $('#cdLbl').textContent = days>0 ? 'ימים למרוץ' : (days===0 ? 'היום!' : 'המרוץ עבר');
+  const w = weekOf(TODAY);
+  $('#hdrSub').textContent = w ? `שבוע ${w.week} מתוך ${WEEKS.length} · ${w.phase}${w.cycle.includes('מופחת')?' · שבוע מופחת':''}`
+    : (TODAY < PLAN.start ? `התוכנית מתחילה ב${fmtLong(PLAN.start)}` : 'התוכנית הסתיימה');
+  $('#hdrName').textContent = PROFILE?.name ? PROFILE.name : 'הגדרות';
+  $('#phasebar').innerHTML = WEEKS.map(x=>`<div class="${w && x.week<w.week?'done':''} ${w && x.week===w.week?'now':''}" title="שבוע ${x.week} – ${x.phase}"></div>`).join('');
+}
+const profileBanner = () => !C
+  ? `<div class="banner"><span>האימונים מוצגים לפי תחושת מאמץ. אפשר להזין ספים (גם הערכה) כדי לקבל קצבים ודופק אישיים.</span><a class="btn pri" href="#settings">הזנת ספים</a></div>`
+  : (C.est ? `<div class="banner"><span>הקצבים מבוססים על <b>הערכה</b> (ומעט שמרניים). אחרי טסט ה-10 ק"מ ב-11.12 עדכן תוצאה אמיתית.</span><a class="btn" href="#settings">עדכון</a></div>` : '');
+
+// ---------- today ----------
+function heroCard(label, s){
+  const d = byDate[s];
+  if(!d) return `<div class="card"><div class="lbl">${label}</div><div class="desc">${s<PLAN.start?'התוכנית עוד לא התחילה.':'מחוץ לתוכנית.'}</div></div>`;
+  const L = LOG[s];
+  if(isRest(d)) return `<div class="card"><div class="lbl"><span>${label} · ${fmtLong(s)}</span></div>
+      <div class="mini"><span class="dot" style="background:var(--t-rest)"></span><div><div class="t">מנוחה 😌</div><div class="k">יום חופש. שינה, מים ומתיחות קלות.</div></div></div></div>`;
+  return `<div class="card hero" style="background:${typeColor(d.type)}">
+    <div class="lbl"><span>${label} · ${fmtLong(s)}</span>${L?.done?'<span class="donebadge" style="background:#fff">✓ בוצע</span>':''}</div>
+    <h2>${esc(d.type)}</h2>
+    <div class="meta"><span class="pill">📏 ${esc(d.km)} ק"מ</span><span class="pill">${esc(d.phase)} · שבוע ${d.phaseWeek}</span></div>
+    <div class="desc">${esc(tok(d.desc))}</div>
+    ${d.extra?`<div class="extra">⏱ ${esc(d.extra)}</div>`:''}
+    <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" style="background:#fff;color:#111;border:none" data-open="${s}">${L?.done?'עריכת דיווח':'סימון כבוצע'}</button></div>
+  </div>`;
+}
+function renderToday(){
+  const tomorrow = addDays(TODAY,1);
+  let html = profileBanner();
+  if(TODAY < PLAN.start){
+    html += `<div class="card"><div class="lbl">לפני ההתחלה</div><div class="desc">התוכנית מתחילה ב<strong>${fmtLong(PLAN.start)}</strong>. האימון הראשון:</div></div>`;
+    html += heroCard('אימון ראשון', PLAN.start);
+  } else {
+    html += heroCard('מחר', tomorrow);
+    const d = byDate[TODAY];
+    if(d){
+      const L = LOG[TODAY];
+      html += `<div class="card"><div class="lbl"><span>היום · ${fmtLong(TODAY)}</span>${L?.done?'<span class="donebadge">✓ בוצע</span>':''}</div>
+        <div class="row"><div class="mini"><span class="dot" style="background:${typeColor(d.type)}"></span><div><div class="t">${esc(d.type)}</div><div class="k">${isRest(d)?'יום מנוחה':esc(d.km)+' ק"מ'}</div></div></div>
+        <button class="btn" data-open="${TODAY}">פרטים</button></div></div>`;
+    }
+  }
+  const w = weekOf(TODAY) || (TODAY<PLAN.start ? WEEKS[0] : null);
+  if(w){
+    const days = weekDays(w), dk = doneKm(w);
+    const pct = Math.min(100, Math.round(dk / w.km * 100));
+    html += `<div class="card"><div class="lbl"><span>השבוע · ${esc(w.phase)} ${w.phaseWeek}</span><span>${fmt(w.start)}–${fmt(addDays(w.start,6))}</span></div>
+      <div class="weekstrip">${days.map(d=>{const L=LOG[d.date];return `<div class="ws ${d.date===TODAY?'today':''} ${L?.done?'done':''}" data-open="${d.date}">
+        <div class="d">${HEB_DOW[parse(d.date).getDay()]}</div><div class="n">${L?.done?'✓':parse(d.date).getDate()}</div>
+        <div class="b" style="background:${typeColor(d.type)}"></div><div class="km">${isRest(d)?'':esc(d.km)}</div></div>`}).join('')}</div>
+      <div class="row" style="margin-top:12px;font-size:14px"><span>בוצע <strong class="num">${r1(dk)}</strong> מתוך ${w.km} ק"מ</span><span class="note">${w.cycle}</span></div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+      ${w.note?`<div class="note" style="margin-top:8px">📌 ${esc(w.note)}</div>`:''}
+      <div style="margin-top:12px"><a class="btn" href="#chat" data-ask="תן לי סיכום של השבוע הנוכחי: מה עשיתי, מה נשאר ומה הדגשים.">💬 סיכום שבוע</a></div>
+    </div>`;
+  }
+  if(C){
+    html += `<div class="card"><div class="lbl"><span>הקצבים והדופק שלך</span><a class="chip" href="#settings" style="text-decoration:none">עריכה</a></div>${zonesTable()}</div>`;
+  }
+  $('#v-today').innerHTML = html;
+}
+function zonesTable(){
+  if(!C) return '';
+  const z=C.z, P=sec=>mmss(sec*C.r);
+  const rows = [
+    ['קל / LSD / Z1', 'קל ככל שצריך', z.easy?`${z.easy[0]}-${z.easy[1]}`:'—'],
+    ['קצב מטרה חצי מרתון', `${P(338)}-${P(340)}`, z.z23?`${z.z23[0]}-${z.z23[1]}`:'—'],
+    ['סח"ח / קצב 10 ק"מ (עליות)', P(308), z.lt?`${z.lt[0]}-${z.lt[1]}`:'—'],
+    ['אינטרוולים 1000', P(300), z.lt?`${z.lt[1]}+`:'—'],
+  ];
+  return `<div class="zones"><span class="h">סוג מאמץ</span><span class="h">קצב (דק'/ק"מ)</span><span class="h">דופק</span>
+    ${rows.map(r=>`<span>${r[0]}</span><span class="num">${r[1]}</span><span class="num">${r[2]}</span>`).join('')}</div>
+    <div class="note" style="margin-top:10px">${C.est?'⚠️ לפי הערכה · ':''}שקול ל-10 ק"מ: ${hms(C.t10)} · תחזית חצי בקצב המטרה: ~${hms(C.hm)}${C.lt?` · דופק סח"ח: ${C.lt}${C.hrEst?' (מוערך מדופק מקסימלי)':''}`:' · בלי נתוני דופק – לפי תחושה'}</div>`;
+}
+
+// ---------- calendar ----------
+let calMonth = null;
+function renderCalendar(){
+  const first = parse(PLAN.start), last = parse(DAYS[DAYS.length-1].date);
+  if(!calMonth){ const t=parse(TODAY); calMonth = (t<first? new Date(first.getFullYear(),first.getMonth(),1) : t>last? new Date(last.getFullYear(),last.getMonth(),1) : new Date(t.getFullYear(),t.getMonth(),1)); }
+  const y=calMonth.getFullYear(), m=calMonth.getMonth();
+  const minM = new Date(first.getFullYear(),first.getMonth(),1), maxM = new Date(last.getFullYear(),last.getMonth(),1);
+  const startCell = new Date(y,m,1-new Date(y,m,1).getDay());
+  let cells='';
+  for(let i=0;i<42;i++){
+    const dt = new Date(startCell); dt.setDate(startCell.getDate()+i);
+    if(i>=35 && dt.getMonth()!==m) break;
+    const s = iso(dt), d = byDate[s], L = LOG[s];
+    const inMonth = dt.getMonth()===m;
+    if(!d || !inMonth){ cells += `<div class="cell out"><div class="n"><span>${dt.getDate()}</span></div></div>`; continue; }
+    cells += `<div class="cell ${isRest(d)?'rest':''} ${s===TODAY?'today':''}" data-open="${s}">
+      <div class="n"><span>${dt.getDate()}</span>${L?.done?'<span style="color:var(--ok)">✓</span>':''}</div>
+      <div class="tg" style="background:${typeColor(d.type)}">${esc(shortType(d.type))}</div>
+      <div class="km">${isRest(d)?'':esc(d.km)}</div></div>`;
+  }
+  const types = [['עליות','עליות'],['LSD','LSD'],['פרטלק','פרטלק'],['ריצה מתגברת','מתגברת'],['אינטרוולים','אינטרוולים'],['טמפו','טמפו'],['איכות משולב','משולב'],['Z1','Z1'],['טסט','טסט'],['חצי','מרוץ']];
+  $('#v-calendar').innerHTML = `<div class="card">
+    <div class="calhead"><button class="btn" id="calPrev" ${calMonth<=minM?'disabled':''}>→</button><h2>${HEB_MON[m]} ${y}</h2><button class="btn" id="calNext" ${calMonth>=maxM?'disabled':''}>←</button></div>
+    <div class="cal">${HEB_DOW.map(x=>`<div class="dn">${x}</div>`).join('')}${cells}</div>
+    <div class="legend">${types.map(([k,l])=>`<span><i class="dot" style="background:${typeColor(k)}"></i>${l}</span>`).join('')}</div>
+  </div>`;
+  $('#calPrev').onclick=()=>{calMonth=new Date(y,m-1,1);renderCalendar();};
+  $('#calNext').onclick=()=>{calMonth=new Date(y,m+1,1);renderCalendar();};
+}
+
+// ---------- weeks ----------
+function renderWeeks(){
+  const max = Math.max(...WEEKS.map(w=>w.km));
+  const cw = weekOf(TODAY);
+  const totalPlan = r1(WEEKS.reduce((a,w)=>a+w.km,0)), totalDone = r1(WEEKS.reduce((a,w)=>a+doneKm(w),0));
+  $('#v-weeks').innerHTML = `<div class="card"><div class="lbl"><span>15 שבועות · ${totalPlan} ק"מ מתוכננים</span><span>בוצע ${totalDone}</span></div>
+    ${WEEKS.map(w=>{const dk=doneKm(w);return `<div class="wk ${cw&&cw.week===w.week?'cur':''}" data-week="${w.week}">
+      <div class="wn">${w.week}<small>${fmt(w.start)}</small></div>
+      <div><div class="h"><span class="p">${esc(w.phase)}${['תחרות','חידוד','שיא'].includes(w.phase)?'':' · '+w.phaseWeek}${w.cycle.includes('מופחת')?' <span class="note">(מופחת)</span>':''}</span><span class="v">${dk?r1(dk)+' / ':''}${w.km} ק"מ · LSD ${w.lsd||'—'}</span></div>
+      <div class="bar"><i style="width:${w.km/max*100}%;background:${w.phase.includes('בסיס')?'var(--t-lsd)':w.phase.includes('בנייה')?'var(--t-comb)':'var(--accent)'}"></i><b style="width:${dk/max*100}%"></b></div>
+      ${w.note?`<div class="note" style="margin-top:4px">${esc(w.note)}</div>`:''}</div></div>`}).join('')}
+  </div>
+  <div class="note" style="padding:0 4px 12px">15 שבועות על בסיס תבנית מאמן: בסיס ← בנייה ← שיא ← חידוד ← תחרות, במחזוריות 2:1. אחרי טסט ה-10 ק"מ (11.12) כדאי לעדכן את הספים בהגדרות.</div>`;
+}
+
+// ---------- day sheet ----------
+function openDay(s){
+  const d = byDate[s]; if(!d) return;
+  const L = LOG[s] || {};
+  const isTest = d.type.includes('טסט');
+  $('#sheetBody').innerHTML = `
+    <div class="lbl"><span>${fmtLong(s)} · שבוע ${d.week} · ${esc(d.phase)}</span></div>
+    <h3 style="color:${typeColor(d.type)}">${esc(d.type)}</h3>
+    ${isRest(d)?'<div class="desc">יום מנוחה. 😌</div>':`
+      <div style="margin:6px 0 10px"><span class="pill l">📏 ${esc(d.km)} ק"מ</span></div>
+      <div class="desc">${esc(tok(d.desc))}</div>
+      ${d.extra?`<div class="extra">⏱ ${esc(d.extra)}</div>`:''}`}
+    ${isTest?`<div style="margin-top:10px"><a class="btn pri" href="#settings" id="toSettings">עדכון ספים לפי תוצאת הטסט</a></div>`:''}
+    <div class="logbox">
+      <div class="row"><strong>דיווח</strong>${L.done?'<span class="donebadge">✓ בוצע</span>':''}</div>
+      <label>מרחק בפועל (ק"מ)<input id="lgKm" type="number" inputmode="decimal" step="0.1" value="${esc(L.km ?? '')}" placeholder="${isRest(d)?'0':esc(kmNum(d.km))}"></label>
+      <label>הערה (תחושה, דופק, קצב…)<textarea id="lgNote">${esc(L.note ?? '')}</textarea></label>
+      <div class="row"><button class="btn ok" id="lgDone">${L.done?'עדכון':'✓ סימון כבוצע'}</button>${L.done?'<button class="btn" id="lgUndo">ביטול סימון</button>':''}<a class="btn" href="#chat" data-ask="ספר לי על האימון של ${fmtLong(s)} (${esc(d.type)}): מה המטרה שלו ואיך לבצע אותו נכון?">💬 שאל</a></div>
+      <div class="note" id="lgMsg"></div>
+    </div>`;
+  $('#scrim').classList.add('on'); $('#sheet').classList.add('on');
+  $('#lgDone').onclick = ()=>saveLog(s, true);
+  const u=$('#lgUndo'); if(u) u.onclick = ()=>saveLog(s, false);
+  const ts=$('#toSettings'); if(ts) ts.onclick=()=>{ closeSheet(); };
+}
+function closeSheet(){ $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); }
+function saveLog(s, done){
+  const km = $('#lgKm').value.trim(), note = $('#lgNote').value.trim();
+  LOG[s] = {done, km: km===''?null:Number(km), note, updated: new Date().toISOString()};
+  if(!store.set('rp.log', LOG)){ $('#lgMsg').textContent='השמירה נכשלה (הדפדפן חוסם אחסון מקומי).'; return; }
+  renderAll(); closeSheet();
+}
+
+// ---------- settings / onboarding ----------
+let setupStep = 0;
+let ONBOARDING = !PROFILE;
+function renderSettings(){
+  const first = ONBOARDING;
+  const p = Object.assign({name:'', testType:'10k_test', source:'test', time:null, testHr:null, restHr:null, maxHr:null}, PROFILE||{});
+  const steps = first ? `<div class="stepper">${[0,1].map(i=>`<i class="${i<=setupStep?'on':''}"></i>`).join('')}</div>` : '';
+  let html = '';
+  if(first) html += `<div class="card welcome"><h2>ברוך הבא 👋</h2><div>תוכנית 15 שבועות לחצי מרתון תל אביב (26.2.2027). שני צעדים קצרים: הספים שלך כדי שהקצבים והדופק יותאמו אליך, ומפתח Gemini חינמי לשאלות.</div>${steps}</div>`;
+  if(!first || setupStep===0){
+    html += `<div class="card"><div class="lbl">1 · הספים שלך</div>
+    <div class="form" id="pf">
+      <label>שם <small>(מופיע רק אצלך)</small><input id="pfName" value="${esc(p.name||'')}" placeholder="למשל: אבישי"></label>
+      <div class="two">
+        <label>מרחק <select id="pfType">${Object.entries(TESTS).map(([k,t])=>`<option value="${k}" ${p.testType===k?'selected':''}>${t.label}</option>`).join('')}</select></label>
+        <label>מקור הזמן <select id="pfSrc">${Object.entries(SOURCES).map(([k,l])=>`<option value="${k}" ${p.source===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      </div>
+      <label>זמן <small>דקות:שניות, או שעות:דקות:שניות לחצי. אם לא בטוח – בחר "הערכה שלי"</small><input id="pfTime" class="ltr" inputmode="numeric" value="${p.time?hms(p.time):''}" placeholder="51:30"></label>
+      <div class="two">
+        <label><span id="pfHrLbl">דופק ממוצע בריצה</span> <small>אופציונלי</small><input id="pfTestHr" type="number" inputmode="numeric" value="${p.testHr||''}" placeholder="164"></label>
+        <label>דופק מנוחה <small>אופציונלי · בבוקר</small><input id="pfRest" type="number" inputmode="numeric" value="${p.restHr||''}" placeholder="55"></label>
+      </div>
+      <label>דופק מקסימלי <small>אופציונלי – משמש רק אם אין דופק טסט</small><input id="pfMax" type="number" inputmode="numeric" value="${p.maxHr||''}" placeholder="185"></label>
+      <div id="pfPreview"></div>
+      <div class="row"><span id="pfMsg" class="errmsg"></span><button class="btn pri" id="pfSave">${first?'המשך ←':'שמירה'}</button></div>
+      <button class="btn" id="pfSkip">${first?'אין לי נתונים – דלג (אימון לפי תחושה)':'ביטול הספים – חזרה לאימון לפי תחושה'}</button>
+      <div class="note">בלי ספים כל האימונים מוצגים לפי תחושת מאמץ ("קצב 10 ק"מ", "שיחה חופשית"), ואפשר להוסיף ספים בכל שלב – למשל אחרי הטסט ב-11.12.</div>
+    </div></div>`;
+  }
+  if(!first || setupStep===1){
+    html += `<div class="card"><div class="lbl">2 · מפתח Gemini (חינם) לשאלות</div>
+      <ol class="steps">
+        <li>היכנס ל-<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> עם חשבון Google ואשר את התנאים.</li>
+        <li>לחץ <b>Create API key</b>. אם מתבקש, בחר או צור פרויקט.</li>
+        <li>העתק את המפתח (מתחיל ב-<span dir="ltr">AIza…</span>) והדבק כאן.</li>
+      </ol>
+      <div class="form" style="margin-top:10px">
+        <label>API key<input id="gmKey" class="ltr" value="${esc(GEM.key||'')}" placeholder="AIza..." autocomplete="off" spellcheck="false"></label>
+        <label>מודל <small>אפשר להשאיר ריק</small><input id="gmModel" class="ltr" value="${esc(GEM.model||'')}" placeholder="gemini-flash-latest"></label>
+        <div class="row"><span id="gmMsg" class="note"></span><span style="display:flex;gap:8px"><button class="btn" id="gmTest">בדיקה</button><button class="btn pri" id="gmSave">${first?'סיום ✓':'שמירה'}</button></span></div>
+        <div class="note">המפתח נשמר רק בדפדפן הזה ונשלח רק ל-Google. בחינם יש מגבלת בקשות לדקה וליום, ו-Google רשאית להשתמש בתוכן השאלות לשיפור המוצרים שלה, אז לא לשתף שם מידע רגיש.</div>
+        ${first?'<button class="btn" id="gmSkip">דילוג – אגדיר אחר כך</button>':''}
+      </div></div>`;
+  }
+  if(!first){
+    html += `<div class="card"><div class="lbl">גיבוי והעברה בין מכשירים</div>
+      <div class="note" style="margin-bottom:10px">הנתונים (ספים, דיווחים, מפתח) נשמרים רק במכשיר הזה. אפשר להעתיק גיבוי ולהדביק במכשיר אחר.</div>
+      <div class="row" style="justify-content:flex-start;gap:8px;flex-wrap:wrap"><button class="btn" id="bkCopy">העתקת גיבוי</button><button class="btn" id="bkPasteBtn">שחזור מגיבוי</button><button class="btn" id="bkReset" style="color:#dc2626">איפוס</button></div>
+      <textarea id="bkText" class="hidden" style="width:100%;margin-top:10px;min-height:90px;font:12px monospace;direction:ltr;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px" placeholder="הדבק כאן את הגיבוי ולחץ שוב על שחזור"></textarea>
+      <div id="bkMsg" class="note" style="margin-top:6px"></div></div>`;
+  }
+  $('#v-settings').innerHTML = html;
+  wireSettings(first);
+}
+function readProfileForm(){
+  const time = parseTime($('#pfTime').value);
+  const num = id => { const v=+$(id).value; return v>0?Math.round(v):null; };
+  return {name:$('#pfName').value.trim(), testType:$('#pfType').value, source:$('#pfSrc').value, time, testHr:num('#pfTestHr'), restHr:num('#pfRest'), maxHr:num('#pfMax')};
+}
+function validateProfile(p){
+  if(!p.time) return 'הזן זמן בפורמט 51:30';
+  const pace = p.time / TESTS[p.testType].km;
+  if(pace < 150 || pace > 600) return 'הזמן לא נראה הגיוני למרחק שנבחר';
+  if(p.testHr && (p.testHr<100||p.testHr>220)) return 'דופק טסט לא הגיוני';
+  if(p.restHr && (p.restHr<30||p.restHr>100)) return 'דופק מנוחה לא הגיוני';
+  return '';
+}
+function wireSettings(first){
+  const pf = $('#pf');
+  if(pf){
+    const prev = ()=>{ const p=readProfileForm(); const err=validateProfile(p); const old=C; C = err?null:calc(p);
+      $('#pfPreview').innerHTML = C ? `<div class="card" style="background:var(--bg);margin:0">${zonesTable()}</div>` : '';
+      C = old; };
+    pf.addEventListener('input', prev); pf.addEventListener('change', prev); prev();
+    const skip = ()=>{ const name=$('#pfName').value.trim(); PROFILE={skipped:true,name,updated:new Date().toISOString()}; C=null; store.set('rp.profile',PROFILE);
+      if(first){ setupStep=1; renderSettings(); window.scrollTo({top:0}); } else { renderAll(); renderSettings(); } };
+    $('#pfSkip').onclick = skip;
+    $('#pfSave').onclick = ()=>{
+      const p = readProfileForm(); const err = validateProfile(p);
+      if(err){ $('#pfMsg').textContent = err; return; }
+      p.updated = new Date().toISOString();
+      PROFILE = p; C = calc(p); store.set('rp.profile', p);
+      if(first){ setupStep = 1; renderSettings(); window.scrollTo({top:0}); }
+      else { $('#pfMsg').className='okmsg'; $('#pfMsg').textContent='נשמר ✓ כל הקצבים עודכנו'; renderHeader(); renderToday(); }
+    };
+  }
+  const gk = $('#gmKey');
+  if(gk){
+    const saveGem = ()=>{ GEM = {key:gk.value.trim(), model:$('#gmModel').value.trim()}; store.set('rp.gemini', GEM); updateChatBox(); };
+    $('#gmTest').onclick = async ()=>{
+      saveGem(); const m=$('#gmMsg'); m.className='note'; m.textContent='בודק…';
+      try{ const t = await gemini([{role:'user',content:'ענה במילה אחת: מוכן?'}], 'אתה עוזר קצר.'); m.className='okmsg'; m.textContent='המפתח עובד ✓ ('+t.model+')'; }
+      catch(e){ m.className='errmsg'; m.textContent='שגיאה: '+(e.message||e); }
+    };
+    const finish = ()=>{ ONBOARDING=false; renderAll(); if(location.hash==='#today') route(); else location.hash='today'; };
+    $('#gmSave').onclick = ()=>{ saveGem(); if(first){ finish(); } else { $('#gmMsg').className='okmsg'; $('#gmMsg').textContent='נשמר ✓'; } };
+    const sk=$('#gmSkip'); if(sk) sk.onclick=finish;
+  }
+  const bc=$('#bkCopy');
+  if(bc){
+    bc.onclick = async ()=>{ const data=JSON.stringify({v:1,profile:PROFILE,log:LOG,gemini:GEM});
+      try{ await navigator.clipboard.writeText(data); $('#bkMsg').textContent='הגיבוי הועתק ✓ הדבק אותו במכשיר השני (בהגדרות ← שחזור).'; }
+      catch(e){ const t=$('#bkText'); t.classList.remove('hidden'); t.value=data; t.select(); $('#bkMsg').textContent='העתק את הטקסט ידנית.'; } };
+    $('#bkPasteBtn').onclick = ()=>{ const t=$('#bkText');
+      if(t.classList.contains('hidden') || !t.value.trim().startsWith('{')){ t.classList.remove('hidden'); t.value=''; t.focus(); $('#bkMsg').textContent='הדבק את הגיבוי ולחץ שוב על "שחזור מגיבוי".'; return; }
+      try{ const d=JSON.parse(t.value); if(d.profile){PROFILE=d.profile;store.set('rp.profile',PROFILE);C=calc(PROFILE);} if(d.log){LOG=d.log;store.set('rp.log',LOG);} if(d.gemini){GEM=d.gemini;store.set('rp.gemini',GEM);}
+        renderAll(); $('#bkMsg').textContent='שוחזר ✓'; }catch(e){ $('#bkMsg').textContent='הטקסט לא תקין.'; } };
+    let armed=false;
+    $('#bkReset').onclick = ()=>{ if(!armed){ armed=true; $('#bkReset').textContent='לחץ שוב לאישור – ימחק הכול במכשיר הזה'; return; }
+      ['rp.profile','rp.log','rp.gemini'].forEach(store.del); PROFILE=null; LOG={}; GEM={key:'',model:''}; C=null; setupStep=0; ONBOARDING=true; renderAll(); route(); };
+  }
+}
+
+// ---------- AI ----------
+async function gemini(msgs, system){
+  const key = (GEM.key||'').trim();
+  if(!key) throw new Error('אין מפתח Gemini – הגדר אותו בהגדרות.');
+  const models = GEM.model ? [GEM.model] : GEM_MODELS;
+  let lastErr;
+  for(const model of models){
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+      method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':key},
+      body: JSON.stringify({systemInstruction:{parts:[{text:system}]}, contents: msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]}))})});
+    let j={}; try{ j = await r.json(); }catch(e){}
+    if(r.ok) return {text: j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '(אין תשובה)', model};
+    lastErr = new Error(r.status===429 ? 'הגעת למגבלת הבקשות החינמית. נסה שוב בעוד דקה.' : (j?.error?.message || ('HTTP '+r.status)));
+    if(r.status!==404) break;   // only fall through to the next model when this one doesn't exist
+  }
+  throw lastErr;
+}
+const CHAT = [];
+const CHIPS = ['מה האימון מחר ואיך להתכונן?','סיכום השבוע','איך אני עומד ביחס לתוכנית?','מה הדגשים לשבוע הבא?','למה יש שבוע מופחת?','איך לתדלק ב-LSD ארוך?'];
+function planContext(){
+  const w = weekOf(TODAY);
+  const lines = DAYS.filter(d=>!isRest(d)).map(d=>{
+    const L=LOG[d.date];
+    return `${d.date} (${d.dow}) | שבוע ${d.week} ${d.phase} | ${d.type} | ${d.km} ק"מ${L?` | דיווח: ${L.done?'בוצע':'לא בוצע'}${L.km!=null?' '+L.km+' ק"מ':''}${L.note?' – '+L.note:''}`:''}`;
+  });
+  const uniq = {}; DAYS.forEach(d=>{ if(!isRest(d) && !uniq[d.type+d.km]) uniq[d.type+d.km]=d; });
+  const today = byDate[TODAY], tom = byDate[addDays(TODAY,1)];
+  const prof = C ? `פרופיל המתאמן${PROFILE.name?' ('+PROFILE.name+')':''}: ${TESTS[PROFILE.testType].label} ב-${hms(PROFILE.time)} (מקור: ${SOURCES[PROFILE.source]||'טסט'}${C.est?' – הערכה, לכן הקצבים שמרניים ב-3%':''}); שקול 10 ק"מ ${hms(C.t10)} (${mmss(C.p10)} לק"מ). דופק מנוחה ${PROFILE.restHr||'לא ידוע'}, דופק סח"ח ${C.lt||'לא ידוע'}. אזורים: קל ${C.z.easy?C.z.easy.join('-'):'?'}, Z2-3 ${C.z.z23?C.z.z23.join('-'):'?'}, סח"ח ${C.z.lt?C.z.lt.join('-'):'?'}. קצב מטרה לחצי ${mmss(338*C.r)}-${mmss(340*C.r)} (תחזית ~${hms(C.hm)}). כל הקצבים בתיאורים כבר מותאמים אליו.`
+    : `המתאמן${PROFILE?.name?' ('+PROFILE.name+')':''} לא הזין ספים ומתאמן לפי תחושת מאמץ, בלי קצבים ודופק מספריים. הסבר במונחי מאמץ (שיחה חופשית / בינוני / סח"ח / קצב 10 ק"מ). אם שואלים על קצבים – הצע להזין ספים בהגדרות, גם כהערכה, או לחכות לטסט ב-11.12.`;
+  return `אתה מאמן ריצה אישי, תומך ומקצועי, שעונה בעברית בקצרה וברור (מתאים למסך טלפון). המתאמן מתכונן לחצי מרתון במרתון תל אביב ב-26.2.2027.
+התאריך היום: ${TODAY} (${today?today.dow:''}). ${w?`השבוע הנוכחי: ${w.week} מתוך ${WEEKS.length}, שלב ${w.phase}, ${w.cycle}, נפח מתוכנן ${w.km} ק"מ.`:''}
+אימון היום: ${today?today.type+' '+today.km:'—'}. אימון מחר: ${tom?tom.type+' '+tom.km:'—'}.
+${prof}
+מחזוריות 2:1 = שני שבועות עומס ואחריהם שבוע מופחת. "איכות משולב" הוא אימון קבוצתי/משולב שתוכנו נקבע ביום עצמו (6-7 ק"מ). סח"ח = סף חומצת חלב.
+התוכנית מבוססת על תבנית של מאמן; אל תמציא שינויים בה אלא אם נשאלת. אם יש כאב, פציעה או חשש רפואי – המלץ לפנות לאיש מקצוע.
+
+סיכום שבועי (שבוע, התחלה, שלב, נפח, LSD, ביצוע בפועל):
+${WEEKS.map(w=>`${w.week} | ${w.start} | ${w.phase} ${w.phaseWeek} | ${w.cycle} | ${w.km} ק"מ | LSD ${w.lsd} | בוצע ${r1(doneKm(w))} ק"מ${w.note?' | '+w.note:''}`).join('\n')}
+
+כל האימונים (ימים שלא מופיעים = מנוחה):
+${lines.join('\n')}
+
+תיאורי האימונים המלאים:
+${Object.values(uniq).map(d=>`[${d.date} ${d.type} ${d.km}]: ${tok(d.desc).replace(/\n/g,' / ')}${d.extra?' ('+d.extra+')':''}`).join('\n')}`;
+}
+function md(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/^#+\s*(.+)$/gm,'<strong>$1</strong>').replace(/^[-*]\s+/gm,'• '); }
+function renderChat(){
+  $('#chips').innerHTML = CHIPS.map(c=>`<button class="chip">${esc(c)}</button>`).join('');
+  $('#chat').innerHTML = CHAT.length ? CHAT.map(m=>`<div class="msg ${m.role==='user'?'u':'a'}">${m.role==='user'?esc(m.content):md(m.content)}</div>`).join('')
+    : `<div class="note" style="text-align:center;padding:20px">שאל כל דבר על התוכנית, על אימון מסוים או על ההתקדמות שלך.</div>`;
+  updateChatBox();
+}
+function updateChatBox(){ $('#gemBox').classList.toggle('hidden', !!(sample || GEM.key)); }
+let busy=false;
+async function ask(text){
+  text = text.trim(); if(!text || busy) return;
+  busy=true; $('#send').disabled=true;
+  CHAT.push({role:'user',content:text}); CHAT.push({role:'assistant',content:'…'}); renderChat(); scrollEnd();
+  const idx = CHAT.length-1;
+  const msgs = CHAT.slice(0,-1).slice(-12);
+  try{
+    if(sample && !GEM.key){
+      const input = [{role:'user',content:planContext()+'\n\n---\nשאלה ראשונה של המתאמן מתחילה כאן.'},{role:'assistant',content:'הבנתי. אני מכיר את התוכנית ומוכן לשאלות.'}, ...msgs];
+      const res = await sample(input,{cache:false, onText:({text})=>{CHAT[idx].content=text||'…'; updateLast(idx);}});
+      CHAT[idx].content = res.text;
+    } else {
+      CHAT[idx].content = (await gemini(msgs, planContext())).text;
+    }
+  }catch(e){
+    const c = e?.code;
+    CHAT[idx].content = c==='rate_limited' ? 'יותר מדי בקשות כרגע, נסה שוב בעוד דקה.' : c==='not_granted' ? 'לא אושרה גישה למודל.' : 'שגיאה: ' + (e?.message || c || e);
+  }
+  busy=false; $('#send').disabled=false; renderChat(); scrollEnd();
+}
+function updateLast(i){ const el=$('#chat').lastElementChild; if(el) el.innerHTML = md(CHAT[i].content); scrollEnd(); }
+function scrollEnd(){ window.scrollTo({top:document.body.scrollHeight}); }
+
+// ---------- routing ----------
+const VIEWS=['today','calendar','weeks','chat','settings'];
+function route(){
+  let h = (location.hash||'').slice(1); let v = VIEWS.includes(h)?h:'today';
+  if(ONBOARDING) v='settings';
+  document.body.classList.toggle('onb', ONBOARDING);
+  if(v==='settings') renderSettings();
+  VIEWS.forEach(x=>{ $('#v-'+x).classList.toggle('on',x===v); });
+  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
+  if(v!=='chat') window.scrollTo({top:0});
+}
+function renderAll(){ renderHeader(); renderToday(); renderCalendar(); renderWeeks(); renderChat(); }
+
+document.addEventListener('click', e=>{
+  const ak = e.target.closest('[data-ask]');
+  if(ak){ closeSheet(); setTimeout(()=>ask(ak.dataset.ask),50); return; }
+  const op = e.target.closest('[data-open]'); if(op){ openDay(op.dataset.open); return; }
+  const wk = e.target.closest('[data-week]'); if(wk){ const w=WEEKS[+wk.dataset.week-1]; const s=parse(w.start); calMonth=new Date(s.getFullYear(),s.getMonth(),1); renderCalendar(); location.hash='calendar'; return; }
+  const ch = e.target.closest('.chip'); if(ch && ch.tagName==='BUTTON' && ch.id!=='clearChat'){ ask(ch.textContent==='סיכום השבוע'?'תן לי סיכום של השבוע הנוכחי: מה עשיתי, מה נשאר ומה הדגשים.':ch.textContent); }
+});
+$('#scrim').onclick = closeSheet;
+$('#send').onclick = ()=>{ const v=$('#q').value; $('#q').value=''; ask(v); };
+$('#q').addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); $('#send').click(); }});
+$('#clearChat').onclick = ()=>{ CHAT.length=0; renderChat(); };
+window.addEventListener('hashchange', route);
+setInterval(()=>{ const t=iso(new Date()); if(t!==TODAY){ TODAY=t; renderAll(); } }, 60000);
+
+renderAll(); route();
+
+// Optional: when opened inside Claude, its built-in model can answer without a Gemini key.
+if(window.claude && window.claude.use){
+  window.claude.use('sample').then(s=>{ sample=s; updateChatBox(); }).catch(()=>{});
+}
+})();
+</script>
+</body>
+</html>
