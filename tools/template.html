@@ -707,9 +707,11 @@ function wireSettings(first){
 async function gemini(msgs, system){
   const key = (GEM.key||'').trim();
   if(!key) throw new Error('אין מפתח Gemini – הגדר אותו בהגדרות.');
-  if(SERVER && CODE){   // go through our server: avoids browser/CORS issues (notably Safari)
-    const d = await apiFetch('/api/chat',{method:'POST', headers:{'content-type':'application/json','x-gemini-key':key}, body: JSON.stringify({code: CODE, system, messages: msgs})});
-    return {text: d.text, model: d.model};
+  if(/^https?:$/.test(location.protocol)){   // go through our server: avoids browser/CORS issues (notably Safari)
+    try{
+      const d = await apiFetch('/api/chat',{method:'POST', headers:{'content-type':'application/json','x-gemini-key':key}, body: JSON.stringify({code: CODE||'', system, messages: msgs})});
+      return {text: d.text, model: d.model};
+    }catch(e){ if(e.status !== 404) throw e; }   // 404 = no server here (e.g. static hosting) → call Google directly
   }
   const models = GEM.model ? [GEM.model] : GEM_MODELS;
   let lastErr;
@@ -782,7 +784,7 @@ async function ask(text){
   }catch(e){
     const c = e?.code;
     const netErr = e instanceof TypeError || /load failed|failed to fetch|type error|networkerror/i.test(e?.message||'');
-    CHAT[idx].content = c==='rate_limited' ? 'יותר מדי בקשות כרגע, נסה שוב בעוד דקה.' : c==='not_granted' ? 'לא אושרה גישה למודל.' : netErr ? 'שגיאת רשת – בדוק חיבור לאינטרנט ונסה שוב.' : 'שגיאה: ' + (e?.message || c || e);
+    CHAT[idx].content = c==='rate_limited' ? 'יותר מדי בקשות כרגע, נסה שוב בעוד דקה.' : c==='not_granted' ? 'לא אושרה גישה למודל.' : netErr ? 'לא הצלחתי להתחבר לשרת. נסה שוב בעוד רגע.\n(' + (e?.name||'') + ': ' + (e?.message||'') + ')' : 'שגיאה: ' + (e?.message || c || e);
   }
   busy=false; $('#send').disabled=false; renderChat(); scrollEnd();
 }

@@ -90,7 +90,7 @@ async function callGemini(env, system, messages, apiKey) {
     if (r.status === 400 || r.status === 403) last.message = "Google דחה את הבקשה – בדוק שמפתח ה-Gemini נכון ופעיל. (" + last.message + ")";
     if (r.status !== 404) break; // only try the next model when this one doesn't exist
   }
-  throw Object.assign(new Error(last.status === 429 ? "המפתח המשותף הגיע למגבלת הבקשות של Google. נסה שוב מאוחר יותר." : last.message), { status: last.status === 429 ? 429 : 502 });
+  throw Object.assign(new Error(last.status === 429 ? "Google הגביל זמנית את מספר הבקשות למפתח הזה. נסה שוב בעוד דקה." : last.message), { status: last.status === 429 ? 429 : 502 });
 }
 
 async function api(request, env, url) {
@@ -149,6 +149,11 @@ async function api(request, env, url) {
     const userKey = (request.headers.get("x-gemini-key") || "").trim();
     if (!userKey && !env.GEMINI_API_KEY) return err(503, "אין מפתח משותף בשרת – הזן מפתח Gemini אישי בהגדרות.");
     const body = await readJson(request);
+    if (userKey) {
+      const msgs = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
+      if (!msgs.length || msgs[msgs.length - 1].role !== "user") return err(400, "no question");
+      return json(await callGemini(env, String(body.system || "").slice(0, 120_000), msgs, userKey));
+    }
     const code = normCode(body.code);
     if (!CODE_RE.test(code)) return err(400, "קוד לא תקין");
     const user = await db.prepare(`SELECT code FROM users WHERE code = ?1`).bind(code).first();
@@ -156,7 +161,6 @@ async function api(request, env, url) {
     const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
     if (!messages.length || messages[messages.length - 1].role !== "user") return err(400, "no question");
     const system = String(body.system || "").slice(0, 120_000);
-    if (userKey) return json(await callGemini(env, system, messages, userKey));
     const day = now.slice(0, 10);
     const perUser = Number(env.DAILY_LIMIT || 40), global = Number(env.GLOBAL_DAILY_LIMIT || 1000);
     const [u, g] = await Promise.all([bumpUsage(db, code, day), bumpUsage(db, "*", day)]);
