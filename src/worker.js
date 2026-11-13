@@ -186,7 +186,30 @@ export default {
       try { return await api(request, env, url); }
       catch (e) { return err(e.status || 500, e.message || "server error"); }
     }
-    if (url.pathname === "/coach") return env.ASSETS.fetch(new Request(new URL("/coach.html", url), request));
-    return env.ASSETS.fetch(request);
+    if (env.ASSETS) {
+      if (url.pathname === "/coach") return env.ASSETS.fetch(new Request(new URL("/coach.html", url), request));
+      return env.ASSETS.fetch(request);
+    }
+    return serveFromGitHub(url, env);
   },
 };
+
+// Without a static-assets binding (deployed straight through the API), the pages are read from the
+// GitHub repo's public/ folder and cached at the edge – a push to main updates the site within minutes.
+const PAGES = { "/": "index.html", "/index.html": "index.html", "/coach": "coach.html", "/coach.html": "coach.html" };
+async function serveFromGitHub(url, env) {
+  const file = PAGES[url.pathname];
+  if (!file) return new Response("not found", { status: 404 });
+  const base = env.ASSET_BASE || "https://raw.githubusercontent.com/avishaydmalka/run-plan/main/public/";
+  const ttl = Number(env.ASSET_TTL || 300);
+  const r = await fetch(base + file, { cf: { cacheTtl: ttl, cacheEverything: true } });
+  if (!r.ok) return new Response("page unavailable", { status: 502 });
+  return new Response(r.body, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": `public, max-age=60`,
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "same-origin",
+    },
+  });
+}
