@@ -149,7 +149,11 @@ def kmnum(k):
 out = []
 for i, w in enumerate(W):
     ws = START + dt.timedelta(days=7 * i)
-    by = {s["day"]: s for s in w["sessions"]}
+    # fixed "combined quality" session is on Wednesday; the Wednesday key workout moves to Monday
+    # (and an easy Tuesday run moves to Thursday so Mon-Tue-Wed aren't three running days in a row)
+    SWAP = {1: 3, 3: 1, 2: 4}
+    by = {SWAP.get(s["day"], s["day"]): s for s in w["sessions"]}
+    assert len(by) == len(w["sessions"]), f"day collision in week {i+1}"
     for d in range(7):
         date = ws + dt.timedelta(days=d)
         s = by.get(d)
