@@ -69,23 +69,38 @@ async function bumpUsage(db, code, day) {
 }
 
 const MODEL_RE = /^[a-z0-9][a-z0-9.\-]{2,60}$/;
+// chat answers don't need deep reasoning: low thinking cuts latency a lot (Gemini 3 defaults to "high")
+const fastConfig = (model) => /gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: "low" } }
+  : /gemini-2\.5/.test(model) ? { thinkingConfig: { thinkingBudget: 512 } } : undefined;
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 
 async function callGemini(env, system, messages, apiKey, preferred) {
   // preferred model first, then the server default and fallbacks; busy/missing models fall through to the next one
   const models = [...new Set([MODEL_RE.test(preferred || "") ? preferred : null, env.GEMINI_MODEL, ...FALLBACK_MODELS].filter(Boolean))];
   let last = { status: 502, message: "no model answered" };
+  const deadline = Date.now() + 55_000; // stay well inside the client's patience
   for (const model of models) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: messages.map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: String(m.content) }] })),
-      }),
-    });
-    let j = {};
-    try { j = await r.json(); } catch {}
+    const left = deadline - Date.now();
+    if (left < 4000) break;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), Math.min(25_000, left));
+    let r, j = {};
+    try {
+      r = await fetch(`${GEMINI}/${encodeURIComponent(model)}:generateContent`, {
+        method: "POST",
+        signal: ctl.signal,
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: messages.map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: String(m.content) }] })),
+          generationConfig: fastConfig(model),
+        }),
+      });
+      try { j = await r.json(); } catch {}
+    } catch (e) {
+      last = { status: 504, message: `המודל ${model} לא ענה בזמן` };
+      continue; // timed out → try the next model
+    } finally { clearTimeout(timer); }
     if (r.ok) {
       const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "(אין תשובה)";
       return { text, model };
@@ -190,17 +205,20 @@ async function api(request, env, url) {
     const ids = models.map((m) => m.id);
     const prefer = url.searchParams.get("prefer") || "";
     const order = [...new Set([prefer, "gemini-3.5-flash", ...ids.filter((i) => /flash/.test(i) && !/lite|preview|exp/.test(i)), ...ids.filter((i) => /flash/.test(i)), ...ids])].filter((i) => ids.includes(i));
-    let recommended = null;
-    const tried = [];
-    for (const id of order.slice(0, 4)) {
-      const p = await fetch(`${GEMINI}/${encodeURIComponent(id)}:generateContent`, {
-        method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 16 } }),
-      });
-      tried.push({ id, status: p.status });
-      if (p.ok) { recommended = id; break; }
-      if (p.status === 400 || p.status === 403) break;
-    }
+    // probe the top candidates in parallel (8 s each) and take the most preferred one that answered
+    const candidates = order.slice(0, 4);
+    const tried = await Promise.all(candidates.map(async (id) => {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 8000);
+      try {
+        const p = await fetch(`${GEMINI}/${encodeURIComponent(id)}:generateContent`, {
+          method: "POST", signal: ctl.signal, headers: { "content-type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: fastConfig(id) }),
+        });
+        return { id, status: p.status };
+      } catch { return { id, status: 504 }; } finally { clearTimeout(timer); }
+    }));
+    const recommended = (tried.find((t) => t.status === 200) || {}).id || null;
     return json({ models, recommended: recommended || order[0] || null, tried });
   }
 
